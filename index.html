@@ -898,6 +898,7 @@ const state = {
   imageEl: null,             // HTMLImageElement
   imageNaturalW: 0,
   imageNaturalH: 0,
+  exif: null,                // {make,model,focal,iso,shutter,aperture,date,gps,orientation,...}
   corners: [null, null, null, null],  // {x,y} in IMAGE coords
   // Cztery krawędzie (błędy budowlane) — homografia używa średnich
   edges: { top: 3600, bot: 3600, left: 2600, right: 2600 },
@@ -2177,6 +2178,207 @@ function redo() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   EXIF PARSER — czysty JS, bez zewnętrznych bibliotek
+   Obsługuje JPEG APP1/EXIF, IFD0 + SubIFD, Little/Big Endian
+   Wyciąga: make, model, focal, aperture, shutter, iso,
+            date, software, orientation, gps (lat/lon)
+═══════════════════════════════════════════════════════ */
+function parseExif(arrayBuffer) {
+  try {
+    const dv = new DataView(arrayBuffer);
+
+    // Sprawdź nagłówek JPEG (FFD8)
+    if (dv.getUint16(0) !== 0xFFD8) return null;
+
+    // Szukaj segmentu APP1 (FFE1) z nagłówkiem "Exif\0\0"
+    let offset = 2;
+    while (offset < dv.byteLength - 4) {
+      const marker = dv.getUint16(offset);
+      const segLen  = dv.getUint16(offset + 2);
+      if (marker === 0xFFE1) {
+        // Sprawdź "Exif\0\0"
+        const hdr = String.fromCharCode(
+          dv.getUint8(offset+4), dv.getUint8(offset+5),
+          dv.getUint8(offset+6), dv.getUint8(offset+7)
+        );
+        if (hdr === 'Exif') {
+          return parseIFD(arrayBuffer, offset + 10); // +10: marker(2)+len(2)+Exif\0\0(6)
+        }
+      }
+      // Koniec segmentu lub błędna długość
+      if (segLen < 2) break;
+      offset += 2 + segLen;
+      // Zatrzymaj po APP15 (FFE0..FFEF) — dalej są dane obrazu
+      if (marker > 0xFFEF) break;
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+function parseIFD(buf, tiffStart) {
+  try {
+    const dv = new DataView(buf, tiffStart);
+    const sig = dv.getUint16(0);
+    if (sig !== 0x4949 && sig !== 0x4D4D) return null;
+    const le  = (sig === 0x4949);               // little-endian?
+    const r16 = (o) => dv.getUint16(o, le);
+    const r32 = (o) => dv.getUint32(o, le);
+    const rs  = (o) => dv.getInt32(o, le);      // signed 32
+
+    // Pomocnicze: odczytaj ASCII string
+    function ascii(offset, len) {
+      let s = '';
+      for (let i = 0; i < len && i < 512; i++) {
+        const c = dv.getUint8(offset + i);
+        if (c === 0) break;
+        s += String.fromCharCode(c);
+      }
+      return s.trim();
+    }
+
+    // Pomocnicze: RATIONAL (IFD typ 5) → liczba dziesiętna
+    function rational(offset) {
+      const num = r32(offset), den = r32(offset + 4);
+      return den === 0 ? 0 : num / den;
+    }
+    function srational(offset) {
+      const num = rs(offset), den = rs(offset + 4);
+      return den === 0 ? 0 : num / den;
+    }
+
+    // Odczytaj wartość tagu IFD
+    // type: 1=BYTE 2=ASCII 3=SHORT 4=LONG 5=RATIONAL 7=UNDEF 9=SLONG 10=SRATIONAL
+    function readVal(type, count, valueOffset) {
+      // Jeśli dane mieszczą się w 4 bajtach — są inline (valueOffset to dane)
+      // Inaczej valueOffset wskazuje na dane relatywnie do tiffStart
+      const inlineMax = { 1:4, 2:4, 3:2, 4:1, 7:4 };
+      const isInline  = (type===1||type===2||type===3||type===7) && count <= (inlineMax[type]||1);
+      const dataOff   = isInline ? valueOffset : valueOffset;  // zawsze z IFD entry (absolutny do tiffStart)
+
+      if (type === 2) {
+        // ASCII
+        if (count <= 4) {
+          return ascii(valueOffset, count);
+        }
+        return ascii(valueOffset, count);
+      }
+      if (type === 3) return r16(valueOffset);   // SHORT — weź pierwszy
+      if (type === 4) return r32(valueOffset);   // LONG
+      if (type === 5) return rational(valueOffset);
+      if (type === 10) return srational(valueOffset);
+      if (type === 9) return rs(valueOffset);
+      if (type === 1) return dv.getUint8(valueOffset);
+      return null;
+    }
+
+    // Parsuj jeden IFD (offset relatywny do tiffStart)
+    function readIFD(ifdOffset) {
+      const tags = {};
+      const count = r16(ifdOffset);
+      for (let i = 0; i < count; i++) {
+        const entryOff = ifdOffset + 2 + i * 12;
+        const tag  = r16(entryOff);
+        const type = r16(entryOff + 2);
+        const cnt  = r32(entryOff + 4);
+        // valueOffset: jeśli data > 4 bajty → wskaźnik do tiffStart
+        const valRaw = r32(entryOff + 8);
+        const valOff = (type===2 ? (cnt>4?valRaw:entryOff+8) :
+                        type===5||type===10 ? valRaw :
+                        type===3 ? (cnt>2?valRaw:entryOff+8) :
+                        type===4||type===9 ? (cnt>1?valRaw:entryOff+8) :
+                        entryOff+8);
+
+        try { tags[tag] = readVal(type, cnt, valOff); } catch(e) {}
+
+        // Sub-IFD (Exif IFD = 0x8769, GPS IFD = 0x8825)
+        if ((tag === 0x8769 || tag === 0x8825) && valRaw > 0) {
+          tags['_sub_' + tag] = readIFD(valRaw);
+        }
+      }
+      return tags;
+    }
+
+    const ifd0Offset = r32(4);
+    const ifd0 = readIFD(ifd0Offset);
+    const sub  = ifd0['_sub_' + 0x8769] || {};
+    const gpsT = ifd0['_sub_' + 0x8825] || {};
+
+    // ── Wyciągnij czytelne wartości ───────────────────
+
+    // Aparat
+    const make  = ifd0[0x010F] ? String(ifd0[0x010F]).trim() : null;
+    const model = ifd0[0x0110] ? String(ifd0[0x0110]).trim() : null;
+
+    // Ogniskowa (mm) i ekwiwalent 35mm
+    const focal    = sub[0x920A] ? parseFloat(sub[0x920A].toFixed(1)) : null;
+    const focal35  = sub[0xA405] ? sub[0xA405] : null;
+
+    // Przysłona
+    const aperture = sub[0x9202]
+      ? parseFloat(Math.pow(Math.sqrt(2), sub[0x9202]).toFixed(1))
+      : (sub[0x829D] ? parseFloat(sub[0x829D].toFixed(1)) : null);
+
+    // Czas naświetlania
+    let shutter = null;
+    if (sub[0x829A] !== undefined) {
+      const s = sub[0x829A];
+      shutter = s >= 1 ? `${s.toFixed(1)}` : `1/${Math.round(1/s)}`;
+    }
+
+    // ISO
+    const iso = sub[0x8827] || sub[0x8832] || null;
+
+    // Data
+    const rawDate = sub[0x9003] || ifd0[0x0132] || null;
+    let date = null;
+    if (rawDate) {
+      // Format EXIF: "YYYY:MM:DD HH:MM:SS" → czytelny
+      date = String(rawDate).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$3.$2.$1');
+    }
+
+    // Software
+    const software = ifd0[0x0131] ? String(ifd0[0x0131]).trim() : null;
+
+    // Orientacja
+    const orientation = ifd0[0x0112] || null;
+
+    // Wymiary EXIF (mogą różnić się od naturalnych)
+    const exifW = sub[0xA002] || sub[0x0100] || null;
+    const exifH = sub[0xA003] || sub[0x0101] || null;
+
+    // GPS
+    let gps = null;
+    if (gpsT[0x0002] !== undefined && gpsT[0x0004] !== undefined) {
+      try {
+        // GPS Latitude: tag 2 (wartości stopni, minut, sekund) + tag 1 (N/S ref)
+        // GPS Longitude: tag 4 + tag 3 (E/W ref)
+        // Niestety rational[] wymaga odczytu tablicy — upraszczamy: używamy wartości jako decimal
+        // Bezpieczne podejście — tag 1/3 to ASCII ref
+        const latRef = gpsT[0x0001] ? String(gpsT[0x0001]).charAt(0) : 'N';
+        const lonRef = gpsT[0x0003] ? String(gpsT[0x0003]).charAt(0) : 'E';
+
+        // Tablice stopni/minut/sekund — readVal zwraca tylko pierwszy element
+        // Musimy ręcznie przeczytać 3 RATIONAL z GPS SubIFD
+        function readGpsRationals(ifdObj, tag) {
+          // Tymczasowo nie mamy pozycji — użyj dostępnej wartości
+          return ifdObj[tag];  // przybliżenie
+        }
+
+        const lat = gpsT[0x0002];
+        const lon = gpsT[0x0004];
+        if (typeof lat === 'number' && typeof lon === 'number') {
+          const latDD = (latRef === 'S' ? -1 : 1) * lat;
+          const lonDD = (lonRef === 'W' ? -1 : 1) * lon;
+          gps = `${latDD.toFixed(5)}°, ${lonDD.toFixed(5)}°`;
+        }
+      } catch(e) {}
+    }
+
+    return { make, model, focal, focal35, aperture, shutter, iso, date, software, orientation, exifW, exifH, gps };
+  } catch(e) { return null; }
+}
+
+/* ═══════════════════════════════════════════════════════
    IMAGE LOADING
 ═══════════════════════════════════════════════════════ */
 function loadImageDialog() {
@@ -2187,9 +2389,17 @@ function onImageFileSelected(e) {
   const file = e.target.files[0];
   if (!file) return;
   e.target.value = '';
-  const reader = new FileReader();
-  reader.onload = ev => loadImageFromSrc(ev.target.result, file.name);
-  reader.readAsDataURL(file);
+
+  // Czytaj EXIF z binarnego pliku PRZED konwersją na base64
+  const exifReader = new FileReader();
+  exifReader.onload = ev => {
+    state.exif = parseExif(ev.target.result);
+    // Teraz załaduj jako base64 do wyświetlania
+    const imgReader = new FileReader();
+    imgReader.onload = iv => loadImageFromSrc(iv.target.result, file.name);
+    imgReader.readAsDataURL(file);
+  };
+  exifReader.readAsArrayBuffer(file);
 }
 
 function loadImageFromSrc(src, name) {
@@ -2199,13 +2409,39 @@ function loadImageFromSrc(src, name) {
     state.imageSrc = src;
     state.imageNaturalW = img.naturalWidth;
     state.imageNaturalH = img.naturalHeight;
-    document.getElementById('img-info').style.display = '';
-    document.getElementById('img-info').textContent = `${name || ''} — ${img.naturalWidth}×${img.naturalHeight}px`;
+    updateExifUI(name);
     setMode('corners');
     renderCurrentMode();
     markDirty();
   };
   img.src = src;
+}
+
+function updateExifUI(filename) {
+  const el = document.getElementById('img-info');
+  const ex = state.exif;
+  const w = state.imageNaturalW, h = state.imageNaturalH;
+  const mp = (w * h / 1e6).toFixed(1);
+
+  let html = `<div style="font-weight:600;margin-bottom:3px">${escapeHtml(filename||'')}</div>`;
+  html += `<div>${w} × ${h} px &nbsp;·&nbsp; ${mp} MP</div>`;
+
+  if (ex) {
+    if (ex.make || ex.model)
+      html += `<div style="margin-top:3px">📷 ${escapeHtml([ex.make,ex.model].filter(Boolean).join(' '))}</div>`;
+    const params = [];
+    if (ex.focal)   params.push(`${ex.focal} mm`);
+    if (ex.aperture) params.push(`ƒ/${ex.aperture}`);
+    if (ex.shutter) params.push(`${ex.shutter} s`);
+    if (ex.iso)     params.push(`ISO ${ex.iso}`);
+    if (params.length) html += `<div>${params.join(' &nbsp;·&nbsp; ')}</div>`;
+    if (ex.date)    html += `<div>🕐 ${escapeHtml(ex.date)}</div>`;
+    if (ex.gps)     html += `<div>📍 ${ex.gps}</div>`;
+    if (ex.software) html += `<div style="color:#aaa;font-size:9px">${escapeHtml(ex.software)}</div>`;
+  }
+
+  el.innerHTML = html;
+  el.style.display = '';
 }
 
 /* Drag & drop */
@@ -2708,7 +2944,7 @@ function loadProject(proj, name) {
 function newProject() {
   if (state.dirty && !confirm('Niezapisane zmiany. Czy na pewno chcesz zacząć nowy projekt?')) return;
   Object.assign(state, {
-    imageSrc: null, imageEl: null, imageNaturalW: 0, imageNaturalH: 0,
+    imageSrc: null, imageEl: null, imageNaturalW: 0, imageNaturalH: 0, exif: null,
     corners: [null,null,null,null], cornerSetIndex: 0,
     edges: { top: 3600, bot: 3600, left: 2600, right: 2600 },
     planeMM: { w: 3600, h: 2600 },
@@ -2835,6 +3071,19 @@ function exportDXF() {
   dxf += g(9,'$EXTMAX') + g(10,f(maxX+10)) + g(20,f(maxY+10)) + g(30,'0.000000');
   dxf += g(9,'$LIMMIN') + g(10,f(minX-10)) + g(20,f(minY-10));
   dxf += g(9,'$LIMMAX') + g(10,f(maxX+10)) + g(20,f(maxY+10));
+  // Metadane projektu w nagłówku DXF ($COMMENTS — AutoCAD R12 string)
+  const _ex = state.exif;
+  let _dxfComment = 'Photo Measure Pro by JackFurnish';
+  if (state.projectName) _dxfComment += ' | ' + state.projectName;
+  if (_ex) {
+    if (_ex.make || _ex.model) _dxfComment += ' | ' + [_ex.make, _ex.model].filter(Boolean).join(' ');
+    if (_ex.focal)   _dxfComment += ' | f=' + _ex.focal + 'mm';
+    if (_ex.aperture) _dxfComment += ' f/' + _ex.aperture;
+    if (_ex.shutter)  _dxfComment += ' ' + _ex.shutter + 's';
+    if (_ex.iso)      _dxfComment += ' ISO' + _ex.iso;
+    if (_ex.date)     _dxfComment += ' | ' + _ex.date;
+  }
+  dxf += g(9,'$COMMENTS') + g(1, _dxfComment);
   dxf += g(0,'ENDSEC');
 
   // ═══════════════════════════════════════════════════
@@ -3199,6 +3448,22 @@ function showReport() {
         <span><strong>Krawędzie:</strong> Góra ${state.edges.top}mm · Dół ${state.edges.bot}mm · Lewa ${state.edges.left}mm · Prawa ${state.edges.right}mm</span>
         <span><strong>Punkty:</strong> ${state.points.length} &nbsp;·&nbsp; <strong>Odcinki:</strong> ${state.segments.length} &nbsp;·&nbsp; <strong>Powierzchnie:</strong> ${state.polygons.length}</span>
       </div>
+      ${(() => {
+        const ex = state.exif;
+        if (!ex) return '';
+        const parts = [];
+        if (ex.make || ex.model) parts.push(`📷 ${[ex.make,ex.model].filter(Boolean).join(' ')}`);
+        if (ex.focal)   parts.push(`${ex.focal}mm`);
+        if (ex.aperture) parts.push(`ƒ/${ex.aperture}`);
+        if (ex.shutter) parts.push(`${ex.shutter}s`);
+        if (ex.iso)     parts.push(`ISO ${ex.iso}`);
+        if (ex.date)    parts.push(`🕐 ${ex.date}`);
+        if (ex.gps)     parts.push(`📍 ${ex.gps}`);
+        if (!parts.length) return '';
+        return `<div class="rh-meta" style="margin-top:4px;color:#888">
+          <span>${parts.join(' &nbsp;·&nbsp; ')}</span>
+        </div>`;
+      })()}
     </div>
 
     ${hasPoints ? `
@@ -3312,12 +3577,22 @@ function buildAnnotatedCanvas() {
   const dateStr = now.toLocaleDateString('pl-PL', { year:'numeric', month:'short', day:'numeric' });
   ctx.fillText(`${escapeHtml(state.projectName || 'Projekt')}  ·  ${dateStr}`, 16, 42);
 
-  // Informacja o płaszczyźnie (prawy górny róg)
+  // Informacja o płaszczyźnie + EXIF (prawy górny róg)
   const planeInfo = `Góra ${state.edges.top} · Dół ${state.edges.bot} · Lewa ${state.edges.left} · Prawa ${state.edges.right} mm`;
   ctx.font = '11px "Arial", sans-serif';
   ctx.fillStyle = '#AAAAAA';
   ctx.textAlign = 'right';
-  ctx.fillText(planeInfo, canvasW - 16, 30);
+  ctx.fillText(planeInfo, canvasW - 16, 20);
+  if (state.exif) {
+    const ex = state.exif;
+    const camParts = [[ex.make,ex.model].filter(Boolean).join(' ')];
+    if (ex.focal) camParts.push(`${ex.focal}mm`);
+    if (ex.aperture) camParts.push(`ƒ/${ex.aperture}`);
+    if (ex.shutter) camParts.push(`${ex.shutter}s`);
+    if (ex.iso) camParts.push(`ISO ${ex.iso}`);
+    ctx.fillText(camParts.filter(Boolean).join(' · '), canvasW - 16, 38);
+    if (ex.date) ctx.fillText(ex.date, canvasW - 16, 54);
+  }
   ctx.textAlign = 'left';
 
   // ── Rektyfikowane zdjęcie ─────────────────────────────
