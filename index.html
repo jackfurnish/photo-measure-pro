@@ -741,6 +741,14 @@ canvas {
   #report-container { box-shadow: none; border-radius: 0; width: 100%; min-height: unset; }
   @page { size: A4; margin: 0; }
 }
+
+/* ── DISTORTION SLIDER ── */
+.dist-slider-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.dist-slider-row label { font-size:11px; font-weight:500; color:var(--secondary); width:22px; flex-shrink:0; }
+.dist-slider-row input[type="range"] { flex:1; height:4px; cursor:pointer; accent-color:var(--accent); }
+.dist-slider-row input[type="number"] { width:68px; padding:4px 6px; border:1px solid var(--border); border-radius:5px; font-family:var(--font); font-size:11px; background:var(--bg); color:var(--primary); outline:none; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.dist-slider-row input[type="number"]:focus { border-color:var(--accent); }
+.dist-status { font-size:10px; color:var(--secondary); margin-top:4px; line-height:1.4; font-style:italic; min-height:14px; }
 </style>
 </head>
 <body>
@@ -883,6 +891,40 @@ canvas {
         <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
           <input type="checkbox" id="show-crosshair" onchange="onCrosshairToggle()"> Celownik (crosshair)
         </label>
+      </div>
+    </div>
+
+    <!-- Korekcja dystorsji obiektywu -->
+    <div class="sidebar-section" id="distortion-section">
+      <div class="section-title">Korekcja dystorsji</div>
+      <div class="field" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="dist-enabled" onchange="onDistortionToggle()">
+          Włącz korekcję dystorsji
+        </label>
+      </div>
+      <div id="dist-controls" style="display:none">
+        <div class="dist-slider-row">
+          <label>k1</label>
+          <input type="range" id="dist-k1-range" min="-0.5" max="0.5" step="0.001" value="0" oninput="onDistK1Change(this.value)">
+          <input type="number" id="dist-k1-num" min="-0.5" max="0.5" step="0.001" value="0" onchange="onDistK1Change(this.value)">
+        </div>
+        <div class="dist-slider-row">
+          <label>k2</label>
+          <input type="range" id="dist-k2-range" min="-0.1" max="0.1" step="0.0001" value="0" oninput="onDistK2Change(this.value)">
+          <input type="number" id="dist-k2-num" min="-0.1" max="0.1" step="0.0001" value="0" onchange="onDistK2Change(this.value)">
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn" style="flex:1" id="btn-exif-distort" onclick="estimateDistortionFromExif()" disabled>📷 Estymuj z EXIF</button>
+          <button class="btn danger" style="flex:1" onclick="resetDistortion()">Reset</button>
+        </div>
+        <div class="dist-status" id="dist-status">Brak danych EXIF</div>
+        <div class="field" style="margin-top:8px;margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+            <input type="checkbox" id="dist-live-preview" onchange="onDistLivePreviewToggle()">
+            Podgląd na żywo (re-rektyfikacja)
+          </label>
+        </div>
       </div>
     </div>
 
@@ -1099,7 +1141,14 @@ const state = {
   projectPath: null,
   projectName: 'Nowy projekt',
   dirty: false,
-  cornerSetIndex: 0          // which corner to set next (0-3)
+  cornerSetIndex: 0,         // which corner to set next (0-3)
+  distortion: {
+    enabled: false,
+    k1: 0.0,
+    k2: 0.0,
+    source: 'manual',        // 'manual' | 'exif'
+    livePreview: false
+  }
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -1291,6 +1340,12 @@ function rectifyImage() {
   const Hinv = state.Hinv;
   const pxPerMM = state.pxPerMM;
 
+  // Odczytaj parametry dystorsji jednorazowo przed pętlą (optymalizacja — miliony iteracji)
+  const doDistortion = state.distortion.enabled &&
+                       (state.distortion.k1 !== 0 || state.distortion.k2 !== 0);
+  const distK1 = state.distortion.k1;
+  const distK2 = state.distortion.k2;
+
   // For each destination pixel, map back to source
   // Canvas: ry=0 = góra obrazu = max y_mm (Y odwrócone: 0 = dół)
   for (let ry = 0; ry < rh; ry++) {
@@ -1300,8 +1355,21 @@ function rectifyImage() {
 
       // mm → image pixel
       const w = Hinv[6]*x_mm + Hinv[7]*y_mm + Hinv[8];
-      const u = (Hinv[0]*x_mm + Hinv[1]*y_mm + Hinv[2]) / w;
-      const v = (Hinv[3]*x_mm + Hinv[4]*y_mm + Hinv[5]) / w;
+      let u = (Hinv[0]*x_mm + Hinv[1]*y_mm + Hinv[2]) / w;
+      let v = (Hinv[3]*x_mm + Hinv[4]*y_mm + Hinv[5]) / w;
+
+      // Korekcja dystorsji obiektywu (Brown-Conrady, radialna)
+      // Undistort: koryguj punkt (u,v) w src image przed interpolacją
+      if (doDistortion) {
+        const cx = srcW * 0.5, cy = srcH * 0.5;
+        const norm = Math.max(srcW, srcH) * 0.5;
+        const xn = (u - cx) / norm;
+        const yn = (v - cy) / norm;
+        const r2 = xn * xn + yn * yn;
+        const factor = 1.0 + distK1 * r2 + distK2 * r2 * r2;
+        u = cx + xn * factor * norm;
+        v = cy + yn * factor * norm;
+      }
 
       // Bilinear interpolation
       const u0 = Math.floor(u), v0 = Math.floor(v);
@@ -2581,6 +2649,11 @@ function loadImageFromSrc(src, name) {
     state.imageNaturalW = img.naturalWidth;
     state.imageNaturalH = img.naturalHeight;
     updateExifUI(name);
+    // Aktualizuj przycisk EXIF w sekcji dystorsji (EXIF mogło się zmienić)
+    const hasExif = state.exif && (state.exif.focal || state.exif.focal35);
+    const btnExif = document.getElementById('btn-exif-distort');
+    if (btnExif) btnExif.disabled = !hasExif;
+    updateDistStatusUI();
     setMode('corners');
     renderCurrentMode();
     markDirty();
@@ -2992,6 +3065,134 @@ window.addEventListener('mouseup', e => {
 });
 
 /* ═══════════════════════════════════════════════════════
+   KOREKCJA DYSTORSJI OBIEKTYWU (Brown-Conrady)
+═══════════════════════════════════════════════════════ */
+
+// Synchronizuj cały UI sekcji dystorsji ze state.distortion
+function syncDistortionUI() {
+  document.getElementById('dist-enabled').checked         = state.distortion.enabled;
+  document.getElementById('dist-controls').style.display  = state.distortion.enabled ? '' : 'none';
+  document.getElementById('dist-k1-range').value          = state.distortion.k1;
+  document.getElementById('dist-k1-num').value            = state.distortion.k1;
+  document.getElementById('dist-k2-range').value          = state.distortion.k2;
+  document.getElementById('dist-k2-num').value            = state.distortion.k2;
+  document.getElementById('dist-live-preview').checked    = state.distortion.livePreview;
+  // Przycisk EXIF aktywny tylko gdy mamy dane ogniskowej
+  const hasExif = state.exif && (state.exif.focal || state.exif.focal35);
+  document.getElementById('btn-exif-distort').disabled = !hasExif;
+  updateDistStatusUI();
+}
+
+// Aktualizuj etykietę statusu pod przyciskami
+function updateDistStatusUI() {
+  const el = document.getElementById('dist-status');
+  if (!el) return;
+  const d = state.distortion;
+  if (d.source === 'exif' && state.exif) {
+    const ex = state.exif;
+    const parts = [];
+    if (ex.focal)   parts.push(`f=${ex.focal}mm`);
+    if (ex.focal35) parts.push(`35mm≈${ex.focal35}mm`);
+    el.textContent = `Estymowano z EXIF: ${parts.join(', ')}`;
+  } else if (d.k1 !== 0 || d.k2 !== 0) {
+    el.textContent = 'Ustawiono manualnie';
+  } else {
+    const hasExif = state.exif && (state.exif.focal || state.exif.focal35);
+    el.textContent = hasExif ? 'Brak korekcji — estymuj z EXIF lub ustaw ręcznie' : 'Brak danych EXIF';
+  }
+}
+
+// Przełącznik "Włącz korekcję dystorsji"
+function onDistortionToggle() {
+  state.distortion.enabled = document.getElementById('dist-enabled').checked;
+  document.getElementById('dist-controls').style.display = state.distortion.enabled ? '' : 'none';
+  markDirty();
+  if (state.distortion.enabled && state.distortion.livePreview && state.imageEl && state.H) {
+    rectifyImage();
+  }
+}
+
+// Zmiana k1 — wywoływana przez suwak (oninput) i pole number (onchange)
+function onDistK1Change(val) {
+  const v = parseFloat(val);
+  if (isNaN(v)) return;
+  const clamped = Math.max(-0.5, Math.min(0.5, v));
+  state.distortion.k1 = clamped;
+  state.distortion.source = 'manual';
+  document.getElementById('dist-k1-range').value = clamped;
+  document.getElementById('dist-k1-num').value   = clamped;
+  updateDistStatusUI();
+  markDirty();
+  if (state.distortion.enabled && state.distortion.livePreview && state.imageEl && state.H) {
+    rectifyImage();
+  }
+}
+
+// Zmiana k2 — wywoływana przez suwak (oninput) i pole number (onchange)
+function onDistK2Change(val) {
+  const v = parseFloat(val);
+  if (isNaN(v)) return;
+  const clamped = Math.max(-0.1, Math.min(0.1, v));
+  state.distortion.k2 = clamped;
+  state.distortion.source = 'manual';
+  document.getElementById('dist-k2-range').value = clamped;
+  document.getElementById('dist-k2-num').value   = clamped;
+  updateDistStatusUI();
+  markDirty();
+  if (state.distortion.enabled && state.distortion.livePreview && state.imageEl && state.H) {
+    rectifyImage();
+  }
+}
+
+// Checkbox "Podgląd na żywo"
+function onDistLivePreviewToggle() {
+  state.distortion.livePreview = document.getElementById('dist-live-preview').checked;
+  markDirty();
+}
+
+// Reset k1/k2 do zera
+function resetDistortion() {
+  state.distortion.k1 = 0;
+  state.distortion.k2 = 0;
+  state.distortion.source = 'manual';
+  syncDistortionUI();
+  markDirty();
+  toast('Korekcja dystorsji zresetowana');
+}
+
+// Estymacja k1/k2 z danych EXIF (ogniskowa → typ obiektywu → przybliżone k1/k2)
+function estimateDistortionFromExif() {
+  const ex = state.exif;
+  if (!ex) { toast('Brak danych EXIF', 'warn'); return; }
+
+  // Preferuj ekwiwalent 35mm; fallback do surowej ogniskowej
+  const refFocal = ex.focal35 || ex.focal;
+  if (!refFocal) { toast('EXIF nie zawiera danych ogniskowej', 'warn'); return; }
+
+  // Empiryczne wartości k1/k2 wg typowych klas obiektywów (Brown-Conrady)
+  let k1 = 0, k2 = 0;
+  if      (refFocal < 15) { k1 = -0.35; k2 =  0.05; }  // ultra szeroki / rybie oko
+  else if (refFocal < 24) { k1 = -0.20; k2 =  0.02; }  // szeroki kąt
+  else if (refFocal < 35) { k1 = -0.10; k2 =  0.01; }  // umiarkowany szeroki
+  else if (refFocal < 50) { k1 = -0.05; k2 =  0;    }  // standardowy
+  else if (refFocal < 85) { k1 =  0.01; k2 =  0;    }  // portretowy
+  else                    { k1 =  0.03; k2 =  0;    }  // tele
+
+  state.distortion.k1 = k1;
+  state.distortion.k2 = k2;
+  state.distortion.source = 'exif';
+  syncDistortionUI();
+  markDirty();
+
+  const fDesc = ex.focal35 ? `f=${ex.focal}mm (35mm≈${ex.focal35}mm)` : `f=${ex.focal}mm`;
+  toast(`Estymacja z EXIF: k1=${k1}, k2=${k2} — ${fDesc}`, 'success');
+
+  if (state.distortion.enabled && state.distortion.livePreview && state.imageEl && state.H) {
+    rectifyImage();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
    PROJECT SAVE / LOAD
 ═══════════════════════════════════════════════════════ */
 function buildProjectJSON() {
@@ -3002,7 +3203,8 @@ function buildProjectJSON() {
       edges: state.edges,
       width_mm: state.planeMM.w,
       height_mm: state.planeMM.h,
-      corners_px: state.corners
+      corners_px: state.corners,
+      distortion: { ...state.distortion }
     },
     homography: {
       img_to_mm: state.H,
@@ -3080,6 +3282,20 @@ function loadProject(proj, name) {
   state.planeMM.w = (state.edges.top + state.edges.bot) / 2;
   state.planeMM.h = (state.edges.left + state.edges.right) / 2;
   onEdgeChange(); // odśwież info o odchyłkach
+
+  // Wczytaj parametry dystorsji (opcjonalne — starsze projekty nie mają tego pola)
+  if (proj.plane && proj.plane.distortion) {
+    state.distortion = {
+      enabled:     !!proj.plane.distortion.enabled,
+      k1:          parseFloat(proj.plane.distortion.k1)  || 0,
+      k2:          parseFloat(proj.plane.distortion.k2)  || 0,
+      source:      proj.plane.distortion.source || 'manual',
+      livePreview: !!proj.plane.distortion.livePreview
+    };
+  } else {
+    state.distortion = { enabled: false, k1: 0, k2: 0, source: 'manual', livePreview: false };
+  }
+  syncDistortionUI();
 
   state.corners = (proj.plane.corners_px || [null,null,null,null]).map(c => c ? {...c} : null);
   state.cornerSetIndex = state.corners.filter(c=>c!==null).length;
@@ -4516,6 +4732,7 @@ tryComputeHomography();
 updateMeasurementUI();
 updateSegmentUI();
 updatePolygonUI();
+syncDistortionUI();
 </script>
 </body>
 </html>
