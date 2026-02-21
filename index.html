@@ -488,6 +488,118 @@ canvas {
   font-style: italic; white-space: pre-wrap; word-break: break-word;
 }
 
+/* ── TEMPLATE WIZARD MODAL ── */
+#tmpl-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,0.5);
+  align-items: center; justify-content: center;
+}
+#tmpl-modal.open { display: flex; }
+#tmpl-box {
+  background: var(--surface);
+  border-radius: 16px;
+  width: 540px; max-width: 96vw; max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px 28px 24px;
+  box-shadow: 0 24px 72px rgba(0,0,0,0.28);
+  display: flex; flex-direction: column; gap: 20px;
+}
+#tmpl-box h2 {
+  font-size: 16px; font-weight: 700; margin: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.tmpl-step { display: none; flex-direction: column; gap: 14px; }
+.tmpl-step.active { display: flex; }
+.tmpl-step-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--secondary);
+}
+/* Siatka kart wzorców */
+.tmpl-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.tmpl-card {
+  border: 2px solid var(--border); border-radius: 12px;
+  padding: 14px 10px; text-align: center; cursor: pointer;
+  background: var(--bg); transition: border-color 0.15s, background 0.15s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.tmpl-card:hover { border-color: var(--accent); background: var(--accent-light); }
+.tmpl-card.selected { border-color: var(--accent); background: var(--accent-light); }
+.tmpl-card-icon { font-size: 28px; line-height: 1; }
+.tmpl-card-name { font-size: 12px; font-weight: 700; }
+.tmpl-card-desc { font-size: 10px; color: var(--secondary); line-height: 1.3; }
+/* Pola wymiarów */
+.tmpl-dims-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.tmpl-field { display: flex; flex-direction: column; gap: 4px; }
+.tmpl-field label {
+  font-size: 10px; font-weight: 600; color: var(--secondary);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.tmpl-field input, .tmpl-field select {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-family: var(--font); font-size: 13px;
+  font-weight: 600; outline: none; background: var(--bg);
+  transition: border-color 0.15s;
+}
+.tmpl-field input:focus, .tmpl-field select:focus { border-color: var(--accent); }
+.tmpl-field .tmpl-hint {
+  font-size: 10px; color: var(--secondary); line-height: 1.4;
+}
+/* Otwory (drzwi/okna) */
+.tmpl-opening-list { display: flex; flex-direction: column; gap: 8px; }
+.tmpl-opening-row {
+  display: grid; grid-template-columns: auto 1fr 80px 80px 80px 28px;
+  gap: 6px; align-items: center;
+  background: var(--bg); border-radius: 8px; padding: 8px 10px;
+  font-size: 12px;
+}
+.tmpl-opening-row .op-type-icon { font-size: 16px; }
+.tmpl-opening-row select, .tmpl-opening-row input {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 6px; font-family: var(--font); font-size: 11px;
+  outline: none; background: var(--surface); width: 100%;
+}
+.tmpl-opening-row .op-del {
+  background: none; border: none; color: var(--secondary);
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px;
+  border-radius: 4px;
+}
+.tmpl-opening-row .op-del:hover { color: var(--danger); background: #FDF0EF; }
+.tmpl-add-opening {
+  border: 1px dashed var(--border); border-radius: 8px;
+  background: none; padding: 8px; cursor: pointer; color: var(--secondary);
+  font-family: var(--font); font-size: 12px; transition: all 0.15s;
+  width: 100%;
+}
+.tmpl-add-opening:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+/* Podsumowanie */
+.tmpl-summary {
+  background: var(--bg); border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px; font-size: 12px;
+}
+.tmpl-summary-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.tmpl-summary-row .s-label { color: var(--secondary); }
+.tmpl-summary-row .s-val { font-weight: 700; }
+/* Nawigacja kroków */
+.tmpl-nav {
+  display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;
+}
+/* Pasek postępu */
+.tmpl-progress {
+  display: flex; gap: 4px; margin-bottom: 4px;
+}
+.tmpl-progress-step {
+  flex: 1; height: 3px; border-radius: 2px; background: var(--border);
+  transition: background 0.2s;
+}
+.tmpl-progress-step.done { background: var(--accent); }
+
 /* ── VOICE MODAL ── */
 #voice-modal {
   display: none;
@@ -638,6 +750,7 @@ canvas {
   <div class="logo">Photo<span>Measure</span> Pro</div>
   <div class="sep"></div>
   <button class="btn" onclick="newProject()">✦ Nowy</button>
+  <button class="btn accent" onclick="openTmplModal()" title="Wzorzec pomieszczenia — kreator wymiarów">📐 Wzorzec…</button>
   <button class="btn" onclick="openProject()">Otwórz…</button>
   <button class="btn" onclick="saveProject()">Zapisz</button>
   <button class="btn" onclick="saveProjectAs()">Zapisz jako…</button>
@@ -833,6 +946,64 @@ canvas {
 
 <input type="file" id="file-input-img" accept="image/jpeg,image/png,image/tiff" style="display:none" onchange="onImageFileSelected(event)">
 <input type="file" id="file-input-proj" accept=".pmproj,.json" style="display:none" onchange="onProjectFileSelected(event)">
+
+<!-- TEMPLATE WIZARD MODAL -->
+<div id="tmpl-modal">
+  <div id="tmpl-box">
+    <h2><span id="tmpl-title-icon">📐</span> <span id="tmpl-title-text">Wzorzec pomieszczenia</span></h2>
+
+    <!-- Progress bar (4 kroki) -->
+    <div class="tmpl-progress" id="tmpl-progress">
+      <div class="tmpl-progress-step" id="tprog-0"></div>
+      <div class="tmpl-progress-step" id="tprog-1"></div>
+      <div class="tmpl-progress-step" id="tprog-2"></div>
+      <div class="tmpl-progress-step" id="tprog-3"></div>
+    </div>
+
+    <!-- KROK 0 — Wybór wzorca -->
+    <div class="tmpl-step active" id="tmpl-step-0">
+      <div class="tmpl-step-label">Krok 1 / 4 — Wybierz typ pomieszczenia</div>
+      <div class="tmpl-grid" id="tmpl-grid"></div>
+    </div>
+
+    <!-- KROK 1 — Nazwa projektu -->
+    <div class="tmpl-step" id="tmpl-step-1">
+      <div class="tmpl-step-label">Krok 2 / 4 — Nazwa projektu</div>
+      <div class="tmpl-field">
+        <label>Nazwa projektu / lokalizacja</label>
+        <input type="text" id="tmpl-proj-name" placeholder="np. Łazienka główna – ul. Kowalska 5">
+      </div>
+      <div class="tmpl-field">
+        <label>Komentarz (opcjonalnie)</label>
+        <input type="text" id="tmpl-proj-comment" placeholder="np. parter, remont 2026">
+      </div>
+    </div>
+
+    <!-- KROK 2 — Wymiary -->
+    <div class="tmpl-step" id="tmpl-step-2">
+      <div class="tmpl-step-label">Krok 3 / 4 — Wymiary płaszczyzny (mm)</div>
+      <div id="tmpl-dims-container"></div>
+    </div>
+
+    <!-- KROK 3 — Otwory -->
+    <div class="tmpl-step" id="tmpl-step-3">
+      <div class="tmpl-step-label">Krok 4 / 4 — Otwory (drzwi / okna)</div>
+      <p style="font-size:11px;color:var(--secondary)">Otwory zostaną dodane jako predefiniowane odcinki pomiarowe. Możesz pominąć lub edytować je po wczytaniu zdjęcia.</p>
+      <div class="tmpl-opening-list" id="tmpl-opening-list"></div>
+      <button class="tmpl-add-opening" onclick="tmplAddOpening()">+ Dodaj otwór</button>
+      <div class="tmpl-summary" id="tmpl-summary"></div>
+    </div>
+
+    <!-- Nawigacja -->
+    <div class="tmpl-nav">
+      <button class="btn" id="tmpl-back-btn" onclick="tmplBack()" style="display:none">← Wstecz</button>
+      <button class="btn" id="tmpl-skip-btn" onclick="tmplSkipOpenings()" style="display:none">Pomiń otwory</button>
+      <button class="btn accent" id="tmpl-next-btn" onclick="tmplNext()" disabled>Dalej →</button>
+      <button class="btn accent" id="tmpl-apply-btn" onclick="tmplApply()" style="display:none">✓ Zastosuj wzorzec</button>
+      <button class="btn" onclick="closeTmplModal()" style="margin-right:auto;order:-1">✕ Anuluj</button>
+    </div>
+  </div>
+</div>
 
 <!-- VOICE COMMENT MODAL -->
 <div id="voice-modal">
@@ -2940,6 +3111,429 @@ function loadProject(proj, name) {
   toast(`Projekt "${state.projectName}" wczytany — ${state.points.length} pkt, ${state.segments.length} odc., ${state.polygons.length} pow.`);
   state.dirty = false;
 }
+
+/* ═══════════════════════════════════════════════════════
+   TEMPLATE WIZARD — wzorce pomieszczeń
+═══════════════════════════════════════════════════════ */
+
+// ── Definicje wzorców ─────────────────────────────────
+const ROOM_TEMPLATES = [
+  {
+    id: 'bathroom',
+    icon: '🛁',
+    name: 'Łazienka',
+    desc: 'ściana / posadzka',
+    defaultName: 'Łazienka',
+    dims: [
+      { id: 'width',   label: 'Szerokość (mm)',  hint: 'typowo 1500–2500',  default: 1800 },
+      { id: 'length',  label: 'Długość (mm)',     hint: 'typowo 2000–3500',  default: 2800 },
+      { id: 'height',  label: 'Wysokość (mm)',    hint: 'typowo 2200–2700',  default: 2500 },
+    ],
+    // Które krawędzie mapują się na wymiary (dla bieżącej płaszczyzny)
+    // plane = ściana → top/bot = szerokość, left/right = wysokość
+    planeLabel: 'Mierzona płaszczyzna (ściana lub podłoga)',
+    openings: [
+      { type: 'door', label: 'Drzwi wejściowe', w: 800, h: 2050 }
+    ]
+  },
+  {
+    id: 'kitchen',
+    icon: '🍳',
+    name: 'Kuchnia',
+    desc: 'ściana zabudowy',
+    defaultName: 'Kuchnia',
+    dims: [
+      { id: 'width',  label: 'Szerokość (mm)',  hint: 'typowo 2400–4800',  default: 3600 },
+      { id: 'length', label: 'Głębokość (mm)',  hint: 'typowo 3000–5000',  default: 4000 },
+      { id: 'height', label: 'Wysokość (mm)',   hint: 'typowo 2400–2800',  default: 2600 },
+    ],
+    planeLabel: 'Mierzona płaszczyzna (ściana zabudowy)',
+    openings: [
+      { type: 'window', label: 'Okno kuchenne', w: 1200, h: 1000 },
+      { type: 'door',   label: 'Drzwi / otwór', w: 900,  h: 2050 }
+    ]
+  },
+  {
+    id: 'living',
+    icon: '🛋',
+    name: 'Salon',
+    desc: 'ściana główna',
+    defaultName: 'Salon',
+    dims: [
+      { id: 'width',  label: 'Szerokość (mm)',  hint: 'typowo 3600–6000',  default: 4800 },
+      { id: 'length', label: 'Głębokość (mm)',  hint: 'typowo 4000–7000',  default: 5500 },
+      { id: 'height', label: 'Wysokość (mm)',   hint: 'typowo 2400–3000',  default: 2600 },
+    ],
+    planeLabel: 'Mierzona płaszczyzna (ściana TV / kominek)',
+    openings: [
+      { type: 'window', label: 'Okno balkonowe', w: 2200, h: 2200 },
+      { type: 'door',   label: 'Drzwi wejściowe', w: 900, h: 2050 }
+    ]
+  },
+  {
+    id: 'bedroom',
+    icon: '🛏',
+    name: 'Sypialnia',
+    desc: 'ściana główna',
+    defaultName: 'Sypialnia',
+    dims: [
+      { id: 'width',  label: 'Szerokość (mm)',  hint: 'typowo 3000–4500',  default: 3800 },
+      { id: 'length', label: 'Głębokość (mm)',  hint: 'typowo 3500–5000',  default: 4200 },
+      { id: 'height', label: 'Wysokość (mm)',   hint: 'typowo 2400–2800',  default: 2600 },
+    ],
+    planeLabel: 'Mierzona płaszczyzna (ściana przy łóżku)',
+    openings: [
+      { type: 'window', label: 'Okno', w: 1400, h: 1200 },
+      { type: 'door',   label: 'Drzwi',  w: 800, h: 2050 }
+    ]
+  },
+  {
+    id: 'corridor',
+    icon: '🚪',
+    name: 'Korytarz',
+    desc: 'hol / przedpokój',
+    defaultName: 'Korytarz',
+    dims: [
+      { id: 'width',  label: 'Szerokość (mm)',  hint: 'typowo 900–1800',   default: 1200 },
+      { id: 'length', label: 'Długość (mm)',    hint: 'typowo 2000–5000',  default: 3000 },
+      { id: 'height', label: 'Wysokość (mm)',   hint: 'typowo 2200–2600',  default: 2500 },
+    ],
+    planeLabel: 'Mierzona płaszczyzna (ściana boczna)',
+    openings: [
+      { type: 'door', label: 'Drzwi frontowe', w: 900, h: 2050 },
+      { type: 'door', label: 'Drzwi wewnętrzne', w: 800, h: 2050 }
+    ]
+  },
+  {
+    id: 'custom',
+    icon: '✏️',
+    name: 'Inne',
+    desc: 'dowolna płaszczyzna',
+    defaultName: 'Pomieszczenie',
+    dims: [
+      { id: 'width',  label: 'Szerokość płaszczyzny (mm)',  hint: 'krawędź pozioma',  default: 3600 },
+      { id: 'height', label: 'Wysokość płaszczyzny (mm)',   hint: 'krawędź pionowa',  default: 2600 },
+    ],
+    planeLabel: 'Mierzona płaszczyzna',
+    openings: []
+  }
+];
+
+// ── Stan kreatora ─────────────────────────────────────
+const tmplState = {
+  step: 0,
+  templateId: null,
+  template: null,
+  dimValues: {},     // {width: 1800, height: 2500, ...}
+  projName: '',
+  projComment: '',
+  openings: []       // [{type,label,w,h}]
+};
+
+// ── Otwórz modal ──────────────────────────────────────
+function openTmplModal() {
+  tmplState.step = 0;
+  tmplState.templateId = null;
+  tmplState.template = null;
+  tmplState.dimValues = {};
+  tmplState.openings = [];
+  tmplBuildGrid();
+  tmplGoTo(0);
+  document.getElementById('tmpl-modal').classList.add('open');
+}
+window.openTmplModal = openTmplModal;
+
+function closeTmplModal() {
+  document.getElementById('tmpl-modal').classList.remove('open');
+}
+window.closeTmplModal = closeTmplModal;
+
+// ── Buduj siatkę kart ──────────────────────────────────
+function tmplBuildGrid() {
+  const grid = document.getElementById('tmpl-grid');
+  grid.innerHTML = '';
+  ROOM_TEMPLATES.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'tmpl-card';
+    card.dataset.id = t.id;
+    card.innerHTML = `<div class="tmpl-card-icon">${t.icon}</div>
+      <div class="tmpl-card-name">${t.name}</div>
+      <div class="tmpl-card-desc">${t.desc}</div>`;
+    card.onclick = () => {
+      document.querySelectorAll('.tmpl-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      tmplState.templateId = t.id;
+      tmplState.template = t;
+      document.getElementById('tmpl-next-btn').disabled = false;
+    };
+    grid.appendChild(card);
+  });
+}
+
+// ── Nawigacja kroków ───────────────────────────────────
+function tmplGoTo(step) {
+  // Ukryj wszystkie kroki
+  document.querySelectorAll('.tmpl-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('tmpl-step-' + step).classList.add('active');
+  tmplState.step = step;
+  // Progress bar
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('tprog-' + i).classList.toggle('done', i <= step);
+  }
+  // Przyciski nawigacji
+  document.getElementById('tmpl-back-btn').style.display = step > 0 ? '' : 'none';
+  document.getElementById('tmpl-next-btn').style.display = step < 3 ? '' : 'none';
+  document.getElementById('tmpl-apply-btn').style.display = step === 3 ? '' : 'none';
+  document.getElementById('tmpl-skip-btn').style.display = step === 3 ? '' : 'none';
+  document.getElementById('tmpl-next-btn').disabled = (step === 0 && !tmplState.templateId);
+  // Tytuł
+  const t = tmplState.template;
+  const icons = ['📐','✏️','📏','🚪'];
+  const titles = ['Wzorzec pomieszczenia', t ? t.name : '', 'Wymiary płaszczyzny', 'Otwory'];
+  document.getElementById('tmpl-title-icon').textContent = step === 0 ? '📐' : (t ? t.icon : icons[step]);
+  document.getElementById('tmpl-title-text').textContent = step === 0 ? 'Wybierz typ pomieszczenia'
+    : step === 1 ? 'Nazwa projektu'
+    : step === 2 ? (t ? t.planeLabel : 'Wymiary')
+    : 'Otwory (drzwi / okna)';
+  // Buduj krok 1 (nazwa) — prefill
+  if (step === 1 && t) {
+    const inp = document.getElementById('tmpl-proj-name');
+    if (!inp.value) inp.value = t.defaultName;
+  }
+  // Buduj krok 2 (wymiary)
+  if (step === 2) tmplBuildDims();
+  // Buduj krok 3 (otwory)
+  if (step === 3) tmplBuildOpenings();
+}
+
+function tmplNext() {
+  const step = tmplState.step;
+  if (step === 0) {
+    if (!tmplState.templateId) return;
+    tmplGoTo(1);
+  } else if (step === 1) {
+    const name = document.getElementById('tmpl-proj-name').value.trim();
+    tmplState.projName = name || (tmplState.template ? tmplState.template.defaultName : 'Projekt');
+    tmplState.projComment = document.getElementById('tmpl-proj-comment').value.trim();
+    tmplGoTo(2);
+  } else if (step === 2) {
+    if (!tmplValidateDims()) return;
+    tmplGoTo(3);
+  }
+}
+window.tmplNext = tmplNext;
+
+function tmplBack() {
+  if (tmplState.step > 0) tmplGoTo(tmplState.step - 1);
+}
+window.tmplBack = tmplBack;
+
+function tmplSkipOpenings() {
+  tmplState.openings = [];
+  tmplApply();
+}
+window.tmplSkipOpenings = tmplSkipOpenings;
+
+// ── Krok 2: Wymiary ────────────────────────────────────
+function tmplBuildDims() {
+  const t = tmplState.template;
+  if (!t) return;
+  const container = document.getElementById('tmpl-dims-container');
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'tmpl-dims-grid';
+  t.dims.forEach(dim => {
+    const div = document.createElement('div');
+    div.className = 'tmpl-field';
+    const val = tmplState.dimValues[dim.id] || dim.default;
+    div.innerHTML = `<label>${dim.label}</label>
+      <input type="number" id="tdim-${dim.id}" value="${val}" min="100" max="50000" step="10">
+      <div class="tmpl-hint">${dim.hint}</div>`;
+    grid.appendChild(div);
+  });
+  container.appendChild(grid);
+  // Dodaj info o tolerancji budowlanej
+  const info = document.createElement('p');
+  info.style.cssText = 'font-size:10px;color:var(--secondary);margin-top:8px;line-height:1.5';
+  info.textContent = 'Wskazówka: Zmierz rzeczywiste wymiary taśmą mierniczą. Każdą krawędź możesz podać osobno w kolejnym kroku po wczytaniu zdjęcia (tolerancje budowlane).';
+  container.appendChild(info);
+}
+
+function tmplValidateDims() {
+  const t = tmplState.template;
+  if (!t) return false;
+  let ok = true;
+  t.dims.forEach(dim => {
+    const inp = document.getElementById('tdim-' + dim.id);
+    const v = parseFloat(inp.value);
+    if (!v || v < 100 || v > 50000) {
+      inp.style.borderColor = 'var(--danger)';
+      ok = false;
+    } else {
+      inp.style.borderColor = '';
+      tmplState.dimValues[dim.id] = v;
+    }
+  });
+  if (!ok) toast('Sprawdź wymiary (100–50000 mm)', 'warn');
+  return ok;
+}
+
+// ── Krok 3: Otwory ─────────────────────────────────────
+function tmplBuildOpenings() {
+  const t = tmplState.template;
+  if (!t) return;
+  // Wypełnij domyślne otwory (raz)
+  if (tmplState.openings.length === 0) {
+    tmplState.openings = t.openings.map(o => ({ ...o, _id: Math.random() }));
+  }
+  tmplRenderOpenings();
+  tmplUpdateSummary();
+}
+
+function tmplRenderOpenings() {
+  const list = document.getElementById('tmpl-opening-list');
+  list.innerHTML = '';
+  tmplState.openings.forEach((op, idx) => {
+    const row = document.createElement('div');
+    row.className = 'tmpl-opening-row';
+    row.innerHTML = `
+      <span class="op-type-icon">${op.type === 'door' ? '🚪' : '🪟'}</span>
+      <select onchange="tmplOpChange(${idx},'type',this.value)">
+        <option value="door"   ${op.type==='door'   ?'selected':''}>Drzwi</option>
+        <option value="window" ${op.type==='window' ?'selected':''}>Okno</option>
+        <option value="pass"   ${op.type==='pass'   ?'selected':''}>Przejście</option>
+      </select>
+      <input type="number" placeholder="Szerokość mm" value="${op.w}" min="100" max="5000" step="10"
+             onchange="tmplOpChange(${idx},'w',+this.value)" title="Szerokość otworu (mm)">
+      <input type="number" placeholder="Wysokość mm"  value="${op.h}" min="100" max="5000" step="10"
+             onchange="tmplOpChange(${idx},'h',+this.value)" title="Wysokość otworu (mm)">
+      <input type="text" placeholder="Opis" value="${op.label || ''}"
+             onchange="tmplOpChange(${idx},'label',this.value)" title="Opis otworu" style="width:100%">
+      <button class="op-del" onclick="tmplOpDel(${idx})" title="Usuń">×</button>`;
+    list.appendChild(row);
+  });
+  tmplUpdateSummary();
+}
+
+function tmplOpChange(idx, key, val) {
+  tmplState.openings[idx][key] = val;
+  // Odśwież ikonę type bez pełnego rerenderingu
+  tmplUpdateSummary();
+}
+window.tmplOpChange = tmplOpChange;
+
+function tmplOpDel(idx) {
+  tmplState.openings.splice(idx, 1);
+  tmplRenderOpenings();
+}
+window.tmplOpDel = tmplOpDel;
+
+function tmplAddOpening() {
+  tmplState.openings.push({ type: 'door', label: 'Otwór', w: 900, h: 2050, _id: Math.random() });
+  tmplRenderOpenings();
+}
+window.tmplAddOpening = tmplAddOpening;
+
+function tmplUpdateSummary() {
+  const t = tmplState.template;
+  if (!t) return;
+  const dims = tmplState.dimValues;
+  const name = tmplState.projName || '—';
+  const w = dims.width  || t.dims.find(d=>d.id==='width')?.default  || '—';
+  const h = dims.height || t.dims.find(d=>d.id==='height')?.default || '—';
+  const l = dims.length || t.dims.find(d=>d.id==='length')?.default || null;
+  const openingsStr = tmplState.openings.length
+    ? tmplState.openings.map(o => `${o.type==='door'?'🚪':'🪟'} ${o.label} ${o.w}×${o.h}mm`).join(', ')
+    : 'brak';
+  let surfaceStr = '—';
+  if (w && l && typeof w === 'number' && typeof l === 'number') {
+    surfaceStr = ((w * l) / 1e6).toFixed(2) + ' m²';
+  }
+  const summary = document.getElementById('tmpl-summary');
+  summary.innerHTML = `
+    <div class="tmpl-summary-row"><span class="s-label">Projekt:</span><span class="s-val">${name}</span></div>
+    <div class="tmpl-summary-row"><span class="s-label">Płaszczyzna:</span><span class="s-val">${w} × ${h} mm</span></div>
+    ${l ? `<div class="tmpl-summary-row"><span class="s-label">Powierzchnia podłogi:</span><span class="s-val">${surfaceStr}</span></div>` : ''}
+    <div class="tmpl-summary-row"><span class="s-label">Otwory (${tmplState.openings.length}):</span><span class="s-val" style="font-size:11px">${openingsStr}</span></div>
+    <div class="tmpl-summary-row" style="margin-top:4px;font-size:10px;color:var(--secondary)">
+      <span>Po zastosowaniu wczytaj zdjęcie i zaznacz 4 narożniki płaszczyzny →</span>
+    </div>`;
+}
+
+// ── Zastosuj wzorzec ───────────────────────────────────
+function tmplApply() {
+  const t = tmplState.template;
+  if (!t) return;
+  // 1. Pobierz wartości wymiarów z pól (ostatnia szansa na edycję)
+  t.dims.forEach(dim => {
+    const inp = document.getElementById('tdim-' + dim.id);
+    if (inp) {
+      const v = parseFloat(inp.value);
+      if (v && v >= 100) tmplState.dimValues[dim.id] = v;
+    }
+  });
+  const dims = tmplState.dimValues;
+  // Mapowanie wymiarów na krawędzie DXF
+  // Dla wzorców: top/bot = szerokość (width), left/right = wysokość (height)
+  const planeW = dims.width  || t.dims.find(d=>d.id==='width')?.default  || 3600;
+  const planeH = dims.height || t.dims.find(d=>d.id==='height')?.default || 2600;
+
+  // 2. Uruchom nowy projekt (bez pytania, bo to jest świadomy wybór użytkownika)
+  Object.assign(state, {
+    imageSrc: null, imageEl: null, imageNaturalW: 0, imageNaturalH: 0, exif: null,
+    corners: [null,null,null,null], cornerSetIndex: 0,
+    edges: { top: planeW, bot: planeW, left: planeH, right: planeH },
+    planeMM: { w: planeW, h: planeH },
+    H: null, Hinv: null, pxPerMM: 0,
+    rectCanvas: null, rectImageData: null,
+    points: [], nextId: 1,
+    segments: [], nextSegId: 1, segmentDraft: null,
+    polygons: [], nextPolyId: 1, polyDraft: null,
+    undoStack: [], redoStack: [],
+    projectName: tmplState.projName || t.defaultName,
+    dirty: false
+  });
+
+  // 3. Aktualizuj pola formularza
+  document.getElementById('project-name-label').textContent = state.projectName;
+  document.getElementById('edge-top').value   = planeW;
+  document.getElementById('edge-bot').value   = planeW;
+  document.getElementById('edge-left').value  = planeH;
+  document.getElementById('edge-right').value = planeH;
+  document.getElementById('edge-avg-info').style.display = 'none';
+  document.getElementById('img-info').style.display = 'none';
+
+  // 4. Dodaj otwory jako predefiniowane odcinki
+  tmplState.openings.forEach(op => {
+    if (!op.w || !op.h || op.w < 10 || op.h < 10) return;
+    // Odcinek poziomy (szerokość otworu) umieszczony na osi Y=0
+    // Pozycja: wyśrodkowany przy X=0, na dole płaszczyzny — użytkownik może przesunąć
+    const xStart = 50;
+    const xEnd   = xStart + op.w;
+    const yPos   = 0;   // dół płaszczyzny (Y-up)
+    state.segments.push({
+      id: state.nextSegId++,
+      a: { x_mm: xStart, y_mm: yPos },
+      b: { x_mm: xEnd,   y_mm: yPos },
+      dist_mm: op.w,
+      comment: `${op.type === 'door' ? '🚪' : '🪟'} ${op.label} (${op.w}×${op.h}mm)`
+    });
+  });
+
+  // 5. Odśwież UI
+  updateCornerUI();
+  tryComputeHomography();
+  updateMeasurementUI();
+  updateSegmentUI();
+  updatePolygonUI();
+  setMode('corners');
+  document.getElementById('drop-zone').classList.remove('hidden');
+  canvasWrapper.classList.remove('visible');
+
+  closeTmplModal();
+  toast(`✓ Wzorzec "${t.name}" zastosowany — wczytaj zdjęcie`, 'success');
+}
+window.tmplApply = tmplApply;
 
 function newProject() {
   if (state.dirty && !confirm('Niezapisane zmiany. Czy na pewno chcesz zacząć nowy projekt?')) return;
