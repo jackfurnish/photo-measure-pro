@@ -3,7 +3,7 @@
 **Perspective-corrected interior measurement tool**
 *Single HTML file — no installation, no dependencies, works offline*
 
-© 2026 **JackFurnish** · Licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+© 2026 **JackFurnish** · All Rights Reserved
 
 ---
 
@@ -42,10 +42,9 @@
 
 ## License
 
-This project is licensed under **Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0)**.
+**All Rights Reserved © 2026 JackFurnish**
 
-- ✅ You **may** view, share and cite this work with attribution to JackFurnish
-- ❌ You **may not** use it for commercial purposes
-- ❌ You **may not** distribute modified versions
+This software is proprietary. No part of this code may be used, copied,
+modified, distributed or sublicensed by anyone other than the author.
 
 See [LICENSE](./LICENSE) for full terms.
