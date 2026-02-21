@@ -316,6 +316,38 @@ canvas {
 #main-canvas { position: absolute; top: 0; left: 0; pointer-events: all; cursor: crosshair; }
 #img-canvas { display: block; pointer-events: none; }
 
+/* Magnifier (lupa) */
+#magnifier {
+  position: fixed;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(184,134,11,0.85);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.12);
+  pointer-events: none;
+  display: none;
+  z-index: 500;
+  overflow: hidden;
+  background: #111;
+}
+#magnifier.active { display: block; }
+/* Etykieta px pod lupą */
+#magnifier-label {
+  position: fixed;
+  display: none;
+  pointer-events: none;
+  z-index: 501;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  background: rgba(45,46,46,0.88);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+#magnifier-label.active { display: block; }
+
 /* Tooltip */
 #tooltip {
   position: fixed;
@@ -748,6 +780,8 @@ canvas {
 
 <div id="tooltip"></div>
 <div id="toast"></div>
+<canvas id="magnifier"></canvas>
+<div id="magnifier-label"></div>
 
 <input type="file" id="file-input-img" accept="image/jpeg,image/png,image/tiff" style="display:none" onchange="onImageFileSelected(event)">
 <input type="file" id="file-input-proj" accept=".pmproj,.json" style="display:none" onchange="onProjectFileSelected(event)">
@@ -1088,6 +1122,128 @@ const imgCtx = imgCanvas.getContext('2d');
 const mainCtx = mainCanvas.getContext('2d');
 const canvasWrapper = document.getElementById('canvas-wrapper');
 
+/* ── MAGNIFIER (lupa narożników) ─────────────────────── */
+const magnifierEl    = document.getElementById('magnifier');
+const magnifierLabel = document.getElementById('magnifier-label');
+const magCtx         = magnifierEl.getContext('2d');
+const MAG_SIZE   = 180;   // średnica lupy w px (CSS)
+const MAG_ZOOM   = 4;     // powiększenie
+const MAG_OFFSET = 24;    // odstęp lupy od kursora (px)
+magnifierEl.width  = MAG_SIZE;
+magnifierEl.height = MAG_SIZE;
+
+/**
+ * Rysuje lupę wycentrowaną na pozycji kursora (clientX/Y).
+ * Źródłem jest imgCanvas (zawiera rektyfikowane lub oryginalne zdjęcie).
+ * @param {number} clientX  — pozycja kursora w oknie przeglądarki
+ * @param {number} clientY
+ * @param {number} imgX     — pozycja na imgCanvas w px (nie w naturalnych pikselach)
+ * @param {number} imgY
+ */
+function updateMagnifier(clientX, clientY, imgX, imgY) {
+  if (!state.imageEl) return;
+
+  const R   = MAG_SIZE / 2;
+  const src = MAG_SIZE / MAG_ZOOM;   // ile px imgCanvas wchodzi do lupy
+
+  // ── Wyczyść i narysuj fragment obrazu ──────────────
+  magCtx.clearRect(0, 0, MAG_SIZE, MAG_SIZE);
+
+  // Clip do koła
+  magCtx.save();
+  magCtx.beginPath();
+  magCtx.arc(R, R, R, 0, Math.PI * 2);
+  magCtx.clip();
+
+  // Źródło: imgCanvas (wyświetlony obraz z uwzględnieniem skali canvasu)
+  magCtx.drawImage(
+    imgCanvas,
+    imgX - src / 2, imgY - src / 2,   // źródłowy prostokąt
+    src, src,
+    0, 0,                              // cel: cały magnifier canvas
+    MAG_SIZE, MAG_SIZE
+  );
+
+  // ── Crosshair wewnątrz lupy ────────────────────────
+  const hairGap  = 8;
+  const hairLen  = R;
+  magCtx.strokeStyle = 'rgba(255,255,255,0.9)';
+  magCtx.lineWidth   = 1;
+  magCtx.setLineDash([]);
+
+  // pozioma
+  magCtx.beginPath(); magCtx.moveTo(R - hairLen, R); magCtx.lineTo(R - hairGap, R); magCtx.stroke();
+  magCtx.beginPath(); magCtx.moveTo(R + hairGap, R); magCtx.lineTo(R + hairLen, R); magCtx.stroke();
+  // pionowa
+  magCtx.beginPath(); magCtx.moveTo(R, R - hairLen); magCtx.lineTo(R, R - hairGap); magCtx.stroke();
+  magCtx.beginPath(); magCtx.moveTo(R, R + hairGap); magCtx.lineTo(R, R + hairLen); magCtx.stroke();
+
+  // Cień crosshaira (czarny, pod spodem)
+  magCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+  magCtx.lineWidth   = 2.5;
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx,dy]) => {
+    magCtx.save();
+    magCtx.translate(dx, dy);
+    magCtx.beginPath(); magCtx.moveTo(R - hairLen, R); magCtx.lineTo(R - hairGap, R); magCtx.stroke();
+    magCtx.beginPath(); magCtx.moveTo(R + hairGap, R); magCtx.lineTo(R + hairLen, R); magCtx.stroke();
+    magCtx.beginPath(); magCtx.moveTo(R, R - hairLen); magCtx.lineTo(R, R - hairGap); magCtx.stroke();
+    magCtx.beginPath(); magCtx.moveTo(R, R + hairGap); magCtx.lineTo(R, R + hairLen); magCtx.stroke();
+    magCtx.restore();
+  });
+  // Właściwe linie (na wierzchu)
+  magCtx.strokeStyle = 'rgba(255,255,255,0.92)';
+  magCtx.lineWidth   = 1;
+  magCtx.beginPath(); magCtx.moveTo(R - hairLen, R); magCtx.lineTo(R - hairGap, R); magCtx.stroke();
+  magCtx.beginPath(); magCtx.moveTo(R + hairGap, R); magCtx.lineTo(R + hairLen, R); magCtx.stroke();
+  magCtx.beginPath(); magCtx.moveTo(R, R - hairLen); magCtx.lineTo(R, R - hairGap); magCtx.stroke();
+  magCtx.beginPath(); magCtx.moveTo(R, R + hairGap); magCtx.lineTo(R, R + hairLen); magCtx.stroke();
+
+  // Mały kwadrat w centrum
+  magCtx.fillStyle   = 'rgba(184,134,11,1)';
+  magCtx.strokeStyle = 'rgba(255,255,255,0.8)';
+  magCtx.lineWidth   = 1;
+  magCtx.beginPath();
+  magCtx.rect(R - 2, R - 2, 4, 4);
+  magCtx.fill();
+  magCtx.stroke();
+
+  // Numer kolejnego narożnika w lupiee (górny lewy)
+  const labels = ['TL','TR','BR','BL'];
+  const nextLabel = state.cornerSetIndex < 4 ? labels[state.cornerSetIndex] : '✓';
+  magCtx.restore();   // koniec clipa
+  magCtx.font = 'bold 11px "Plus Jakarta Sans", sans-serif';
+  magCtx.fillStyle = 'rgba(184,134,11,1)';
+  magCtx.textAlign = 'left';
+  magCtx.textBaseline = 'top';
+  magCtx.fillText(nextLabel, 8, 7);
+
+  // ── Pozycja lupy w oknie przeglądarki ─────────────
+  // Domyślnie: prawy górny róg od kursora
+  // Przełącz na lewy gdy zbyt blisko prawej krawędzi
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let lx = clientX + MAG_OFFSET;
+  let ly = clientY - MAG_SIZE - MAG_OFFSET;
+  if (lx + MAG_SIZE > vw - 10) lx = clientX - MAG_SIZE - MAG_OFFSET;
+  if (ly < 10)                  ly = clientY + MAG_OFFSET;
+
+  magnifierEl.style.left = lx + 'px';
+  magnifierEl.style.top  = ly + 'px';
+  magnifierEl.classList.add('active');
+
+  // ── Etykieta współrzędnych ─────────────────────────
+  const natX = Math.round(imgX * (state.imageNaturalW / imgCanvas.width));
+  const natY = Math.round(imgY * (state.imageNaturalH / imgCanvas.height));
+  magnifierLabel.textContent = `${natX} × ${natY} px`;
+  magnifierLabel.style.left = lx + 'px';
+  magnifierLabel.style.top  = (ly + MAG_SIZE + 5) + 'px';
+  magnifierLabel.classList.add('active');
+}
+
+function hideMagnifier() {
+  magnifierEl.classList.remove('active');
+  magnifierLabel.classList.remove('active');
+}
+
 function getDisplaySize() {
   const area = document.getElementById('canvas-area');
   const aw = area.clientWidth - 40, ah = area.clientHeight - 40;
@@ -1396,6 +1552,7 @@ mainCanvas.addEventListener('click', onCanvasClick);
 mainCanvas.addEventListener('mousemove', onCanvasMouseMove);
 mainCanvas.addEventListener('mouseleave', () => {
   document.getElementById('tooltip').style.display = 'none';
+  hideMagnifier();
   if (state._cursorPos) {
     state._cursorPos = null;
     redrawOverlay();
@@ -1487,12 +1644,14 @@ function onCanvasMouseMove(e) {
   }
 
   if (state.mode === 'corners' && state.imageEl) {
-    const { x, y } = canvasToImageCoords(e);
+    const { x, y, cx, cy } = canvasToImageCoords(e);
     tooltip.textContent = `${Math.round(x)}px, ${Math.round(y)}px`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
     tooltip.style.top = (e.clientY - 10) + 'px';
     if (showCrosshair) redrawOverlay();
+    // Lupa: cx/cy to pozycja na canvasie (uwzględnia skalę wyświetlania)
+    updateMagnifier(e.clientX, e.clientY, cx, cy);
   } else if ((state.mode === 'measure' || state.mode === 'rectified') && state.rectCanvas) {
     const { x_mm, y_mm } = canvasToMMCoords(e);
     tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
@@ -1532,6 +1691,7 @@ function onCrosshairToggle() {
 ═══════════════════════════════════════════════════════ */
 function setMode(m) {
   state.mode = m;
+  if (m !== 'corners') hideMagnifier();
   ['corners','rectified','measure','segments'].forEach(t => {
     document.getElementById('tab-'+t).classList.toggle('active', t === m);
   });
