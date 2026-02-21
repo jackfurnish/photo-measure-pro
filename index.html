@@ -433,6 +433,41 @@ canvas {
 .seg-coords { flex: 1; font-size: 9px; color: var(--secondary); line-height: 1.3; }
 .seg-note { font-size: 10px; color: var(--secondary); padding: 2px 0 0 26px; font-style: italic; }
 
+/* ── POLYGONS ── */
+.poly-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bg);
+}
+.poly-item-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+}
+.poly-badge {
+  width: 20px; height: 20px; border-radius: 4px;
+  background: #27AE60; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; flex-shrink: 0;
+}
+.poly-area {
+  font-weight: 700; font-size: 12px; color: #1E8449;
+  font-variant-numeric: tabular-nums;
+}
+.poly-meta { flex: 1; font-size: 9px; color: var(--secondary); line-height: 1.3; }
+.poly-note { font-size: 10px; color: var(--secondary); padding: 2px 0 0 26px; font-style: italic; }
+
+/* ── SNAP RING ── */
+#snap-ring {
+  position: fixed;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid #27AE60;
+  pointer-events: none;
+  display: none;
+  z-index: 400;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(39,174,96,0.25);
+}
+#snap-ring.active { display: block; }
+
 /* ── VOICE COMMENT BUTTON in measurement list ── */
 .meas-mic {
   width: 20px; height: 20px;
@@ -703,6 +738,17 @@ canvas {
       </div>
     </div>
 
+    <!-- Polygons -->
+    <div class="sidebar-section" id="polygons-section">
+      <div class="section-title">Powierzchnie</div>
+      <p style="font-size:10px;color:var(--secondary);margin-bottom:8px" id="poly-hint">Przejdź do zakładki "5. Powierzchnia" i klikaj wierzchołki konturu</p>
+      <div id="poly-list"></div>
+      <div id="poly-empty" style="font-size:11px;color:var(--secondary)">Brak powierzchni</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="btn danger" style="flex:1" onclick="clearAllPolygons()" id="btn-clear-polys" disabled>Wyczyść</button>
+      </div>
+    </div>
+
     <!-- Options -->
     <div class="sidebar-section">
       <div class="section-title">Opcje widoku</div>
@@ -747,6 +793,7 @@ canvas {
       <button class="mode-tab" id="tab-rectified" onclick="setMode('rectified')">2. Rektyfikacja</button>
       <button class="mode-tab" id="tab-measure" onclick="setMode('measure')">3. Punkty</button>
       <button class="mode-tab" id="tab-segments" onclick="setMode('segments')">4. Odcinki</button>
+      <button class="mode-tab" id="tab-polygon" onclick="setMode('polygon')">5. Powierzchnia</button>
       <div class="spacer"></div>
       <span class="info-text" id="mode-info">Wczytaj zdjęcie i zaznacz 4 narożniki płaszczyzny</span>
     </div>
@@ -782,6 +829,7 @@ canvas {
 <div id="toast"></div>
 <canvas id="magnifier"></canvas>
 <div id="magnifier-label"></div>
+<div id="snap-ring"></div>
 
 <input type="file" id="file-input-img" accept="image/jpeg,image/png,image/tiff" style="display:none" onchange="onImageFileSelected(event)">
 <input type="file" id="file-input-proj" accept=".pmproj,.json" style="display:none" onchange="onProjectFileSelected(event)">
@@ -866,6 +914,11 @@ const state = {
   segments: [],              // {id,a:{x_mm,y_mm},b:{x_mm,y_mm},dist_mm,comment:''}
   nextSegId: 1,
   segmentDraft: null,        // {x_mm,y_mm} — pierwszy punkt odcinka w trakcie rysowania
+  polygons: [],              // {id, pts:[{x_mm,y_mm}], area_mm2, perimeter_mm, comment:''}
+  nextPolyId: 1,
+  polyDraft: null,           // [{x_mm,y_mm}] — punkty bieżącego polygonu
+  _dragPoint: null,          // {id, offsetX, offsetY} — przeciągany punkt pomiarowy
+  _snapTarget: null,         // {x_mm,y_mm} — najbliższy punkt do snapa
   _cursorPos: null,          // {cx,cy} — pozycja kursora w px canvasu (dla crosshaira)
   undoStack: [],
   redoStack: [],
@@ -1281,7 +1334,7 @@ function renderCurrentMode() {
 
   if (state.mode === 'corners') {
     imgCtx.drawImage(state.imageEl, 0, 0, w, h);
-  } else if ((state.mode === 'rectified' || state.mode === 'measure' || state.mode === 'segments') && state.rectCanvas) {
+  } else if ((state.mode === 'rectified' || state.mode === 'measure' || state.mode === 'segments' || state.mode === 'polygon') && state.rectCanvas) {
     imgCtx.drawImage(state.rectCanvas, 0, 0, w, h);
   }
 
@@ -1484,6 +1537,117 @@ function redrawOverlay() {
       mainCtx.fillText(`${dist.toFixed(0)} mm`, mx, my2 - 5);
     }
 
+    // ── POLYGONY (zamknięte powierzchnie) ────────────────
+    state.polygons.forEach(poly => {
+      if (poly.pts.length < 2) return;
+      const canvasPts = poly.pts.map(p => mmToCanvas(p.x_mm, p.y_mm));
+
+      // Wypełnienie z przezroczystością
+      mainCtx.save();
+      mainCtx.beginPath();
+      canvasPts.forEach(({ sx, sy }, i) => i === 0 ? mainCtx.moveTo(sx,sy) : mainCtx.lineTo(sx,sy));
+      mainCtx.closePath();
+      mainCtx.fillStyle = 'rgba(39,174,96,0.15)';
+      mainCtx.fill();
+
+      // Obrys
+      mainCtx.strokeStyle = '#27AE60';
+      mainCtx.lineWidth = 2;
+      mainCtx.setLineDash([]);
+      mainCtx.stroke();
+      mainCtx.restore();
+
+      // Wierzchołki
+      canvasPts.forEach(({ sx, sy }, i) => {
+        mainCtx.beginPath(); mainCtx.arc(sx, sy, 5, 0, Math.PI*2);
+        mainCtx.fillStyle = '#27AE60'; mainCtx.fill();
+        mainCtx.strokeStyle = '#fff'; mainCtx.lineWidth = 1.5; mainCtx.stroke();
+      });
+
+      // Etykieta powierzchni w centroidzie
+      const cx2 = canvasPts.reduce((s,p) => s + p.sx, 0) / canvasPts.length;
+      const cy2 = canvasPts.reduce((s,p) => s + p.sy, 0) / canvasPts.length;
+      const areaM2 = (poly.area_mm2 / 1e6).toFixed(2);
+      const perimM  = (poly.perimeter_mm / 1000).toFixed(2);
+      const areaLabel = `${areaM2} m²`;
+      mainCtx.font = 'bold 13px Plus Jakarta Sans, sans-serif';
+      mainCtx.textAlign = 'center'; mainCtx.textBaseline = 'middle';
+      mainCtx.strokeStyle = 'rgba(255,255,255,0.95)'; mainCtx.lineWidth = 3;
+      mainCtx.strokeText(areaLabel, cx2, cy2);
+      mainCtx.fillStyle = '#1E8449';
+      mainCtx.fillText(areaLabel, cx2, cy2);
+      // Obwód pod spodem
+      mainCtx.font = '10px Plus Jakarta Sans, sans-serif';
+      mainCtx.strokeStyle = 'rgba(255,255,255,0.9)'; mainCtx.lineWidth = 2.5;
+      mainCtx.strokeText(`obw. ${perimM} m`, cx2, cy2 + 17);
+      mainCtx.fillStyle = '#1E8449';
+      mainCtx.fillText(`obw. ${perimM} m`, cx2, cy2 + 17);
+      // Numer polygonu (badge)
+      mainCtx.beginPath(); mainCtx.arc(cx2, cy2 - 20, 9, 0, Math.PI*2);
+      mainCtx.fillStyle = '#27AE60'; mainCtx.fill();
+      mainCtx.fillStyle = '#fff'; mainCtx.font = 'bold 9px Plus Jakarta Sans, sans-serif';
+      mainCtx.fillText(poly.id, cx2, cy2 - 20);
+    });
+
+    // ── POLYGON DRAFT (w trakcie rysowania) ──────────────
+    if (state.mode === 'polygon' && state.polyDraft && state.polyDraft.length > 0) {
+      const draftPts = state.polyDraft.map(p => mmToCanvas(p.x_mm, p.y_mm));
+      const mouse = state._mousePos ? mmToCanvas(state._mousePos.x_mm, state._mousePos.y_mm) : null;
+
+      // Linie łączące wierzchołki draftu
+      mainCtx.beginPath();
+      draftPts.forEach(({ sx, sy }, i) => i === 0 ? mainCtx.moveTo(sx,sy) : mainCtx.lineTo(sx,sy));
+      if (mouse) mainCtx.lineTo(mouse.sx, mouse.sy);
+      mainCtx.strokeStyle = 'rgba(39,174,96,0.7)';
+      mainCtx.lineWidth = 1.5; mainCtx.setLineDash([5,4]); mainCtx.stroke();
+      mainCtx.setLineDash([]);
+
+      // Linia powrotna do pierwszego punktu (zamknięcie)
+      if (draftPts.length >= 2 && mouse) {
+        mainCtx.beginPath();
+        mainCtx.moveTo(mouse.sx, mouse.sy);
+        mainCtx.lineTo(draftPts[0].sx, draftPts[0].sy);
+        mainCtx.strokeStyle = 'rgba(39,174,96,0.3)';
+        mainCtx.lineWidth = 1; mainCtx.setLineDash([3,5]); mainCtx.stroke();
+        mainCtx.setLineDash([]);
+      }
+
+      // Live area preview (Shoelace z aktualną pozycją myszy)
+      if (draftPts.length >= 2 && state._mousePos) {
+        const tmpPts = [...state.polyDraft, state._mousePos];
+        const liveArea = Math.abs(shoelaceArea(tmpPts)) / 1e6;
+        if (mouse) {
+          mainCtx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
+          mainCtx.textAlign = 'center'; mainCtx.textBaseline = 'bottom';
+          mainCtx.strokeStyle = 'rgba(255,255,255,0.9)'; mainCtx.lineWidth = 3;
+          mainCtx.strokeText(`~ ${liveArea.toFixed(2)} m²`, mouse.sx, mouse.sy - 8);
+          mainCtx.fillStyle = '#27AE60';
+          mainCtx.fillText(`~ ${liveArea.toFixed(2)} m²`, mouse.sx, mouse.sy - 8);
+        }
+      }
+
+      // Wierzchołki draftu
+      draftPts.forEach(({ sx, sy }, i) => {
+        mainCtx.beginPath(); mainCtx.arc(sx, sy, i === 0 ? 7 : 5, 0, Math.PI*2);
+        mainCtx.fillStyle = i === 0 ? '#1E8449' : '#27AE60'; mainCtx.fill();
+        mainCtx.strokeStyle = '#fff'; mainCtx.lineWidth = 1.5; mainCtx.stroke();
+        // Numer wierzchołka
+        mainCtx.fillStyle = '#fff'; mainCtx.font = 'bold 8px Plus Jakarta Sans, sans-serif';
+        mainCtx.textAlign = 'center'; mainCtx.textBaseline = 'middle';
+        mainCtx.fillText(i+1, sx, sy);
+      });
+
+      // Podpowiedź przy pierwszym wierzchołku — "kliknij tutaj aby zamknąć"
+      if (draftPts.length >= 3 && mouse) {
+        const d0 = Math.hypot(mouse.sx - draftPts[0].sx, mouse.sy - draftPts[0].sy);
+        if (d0 < 20) {
+          mainCtx.beginPath(); mainCtx.arc(draftPts[0].sx, draftPts[0].sy, 12, 0, Math.PI*2);
+          mainCtx.strokeStyle = '#27AE60'; mainCtx.lineWidth = 2;
+          mainCtx.setLineDash([3,3]); mainCtx.stroke(); mainCtx.setLineDash([]);
+        }
+      }
+    }
+
     // Oznaczenie układu współrzędnych (lewy dolny narożnik)
     const originSize = 14;
     mainCtx.strokeStyle = 'rgba(184,134,11,0.8)';
@@ -1546,6 +1710,74 @@ function redrawOverlay() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   GEOMETRY HELPERS
+═══════════════════════════════════════════════════════ */
+
+// Shoelace formula — zwraca powierzchnię ze znakiem (mm²)
+// pts: [{x_mm, y_mm}]
+function shoelaceArea(pts) {
+  let area = 0;
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += pts[i].x_mm * pts[j].y_mm;
+    area -= pts[j].x_mm * pts[i].y_mm;
+  }
+  return area / 2;
+}
+
+// Obwód polygonu (mm)
+function polygonPerimeter(pts) {
+  let perim = 0;
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const dx = pts[j].x_mm - pts[i].x_mm;
+    const dy = pts[j].y_mm - pts[i].y_mm;
+    perim += Math.sqrt(dx*dx + dy*dy);
+  }
+  return perim;
+}
+
+/**
+ * Znajdź najbliższy istniejący punkt pomiarowy do pozycji (x_mm, y_mm).
+ * Próg: snapThresholdMM mm. Zwraca {x_mm, y_mm} lub null.
+ */
+function findSnapTarget(x_mm, y_mm, excludeId) {
+  const SNAP_MM = 15;   // próg przyciągania w mm
+  let best = null, bestDist = SNAP_MM;
+  state.points.forEach(pt => {
+    if (pt.id === excludeId) return;
+    const d = Math.hypot(pt.x_mm - x_mm, pt.y_mm - y_mm);
+    if (d < bestDist) { bestDist = d; best = { x_mm: pt.x_mm, y_mm: pt.y_mm }; }
+  });
+  // Sprawdź też wierzchołki polygonów
+  state.polygons.forEach(poly => {
+    poly.pts.forEach(pt => {
+      const d = Math.hypot(pt.x_mm - x_mm, pt.y_mm - y_mm);
+      if (d < bestDist) { bestDist = d; best = { x_mm: pt.x_mm, y_mm: pt.y_mm }; }
+    });
+  });
+  // Sprawdź też draft polygonu (snap do pierwszego wierzchołka)
+  if (state.polyDraft && state.polyDraft.length >= 3) {
+    const fp = state.polyDraft[0];
+    const d = Math.hypot(fp.x_mm - x_mm, fp.y_mm - y_mm);
+    if (d < bestDist) { bestDist = d; best = { x_mm: fp.x_mm, y_mm: fp.y_mm, isFirst: true }; }
+  }
+  return best;
+}
+
+function showSnapRing(clientX, clientY) {
+  const ring = document.getElementById('snap-ring');
+  ring.style.left = clientX + 'px';
+  ring.style.top  = clientY + 'px';
+  ring.classList.add('active');
+}
+function hideSnapRing() {
+  document.getElementById('snap-ring').classList.remove('active');
+}
+
+/* ═══════════════════════════════════════════════════════
    MOUSE INTERACTION
 ═══════════════════════════════════════════════════════ */
 mainCanvas.addEventListener('click', onCanvasClick);
@@ -1553,8 +1785,13 @@ mainCanvas.addEventListener('mousemove', onCanvasMouseMove);
 mainCanvas.addEventListener('mouseleave', () => {
   document.getElementById('tooltip').style.display = 'none';
   hideMagnifier();
+  hideSnapRing();
+  state._snapTarget = null;
+  state._mousePos = null;
   if (state._cursorPos) {
     state._cursorPos = null;
+    redrawOverlay();
+  } else if (state.mode === 'polygon' && state.polyDraft) {
     redrawOverlay();
   }
 });
@@ -1578,7 +1815,8 @@ function canvasToMMCoords(e) {
 }
 
 function onCanvasClick(e) {
-  if (isPanning || spaceDown) return;   // ignoruj klik po panie
+  if (isPanning || spaceDown) return;
+  if (state._dragPoint) return;   // ignoruj klik po drag
   if (state.mode === 'corners' && state.imageEl) {
     const { x, y } = canvasToImageCoords(e);
     const ci = state.cornerSetIndex;
@@ -1627,7 +1865,52 @@ function onCanvasClick(e) {
       // Od razu otwórz modal opisu
       openSegmentCommentModal(seg.id);
     }
+  } else if (state.mode === 'polygon' && state.rectCanvas) {
+    let { x_mm, y_mm } = canvasToMMCoords(e);
+    if (x_mm < 0 || y_mm < 0 || x_mm > state.planeMM.w * 1.05 || y_mm > state.planeMM.h * 1.05) return;
+
+    // Snap do istniejących punktów
+    const snap = state._snapTarget;
+    if (snap) { x_mm = snap.x_mm; y_mm = snap.y_mm; }
+
+    if (!state.polyDraft) state.polyDraft = [];
+
+    // Dwuklik LUB klik na pierwszy wierzchołek (gdy ≥3 pkt) → zamknij polygon
+    if (state.polyDraft.length >= 3) {
+      const fp = state.polyDraft[0];
+      const distToFirst = Math.hypot(x_mm - fp.x_mm, y_mm - fp.y_mm);
+      if (distToFirst < 15 || (snap && snap.isFirst) || e.detail >= 2) {
+        closePolygon();
+        return;
+      }
+    }
+
+    // Dodaj wierzchołek
+    state.polyDraft.push({ x_mm, y_mm });
+    document.getElementById('mode-info').textContent =
+      `${state.polyDraft.length} wierzchołków — kliknij pierwszy aby zamknąć lub Enter`;
+    redrawOverlay();
   }
+}
+
+function closePolygon() {
+  if (!state.polyDraft || state.polyDraft.length < 3) {
+    toast('Potrzeba minimum 3 punktów', 'warn'); return;
+  }
+  pushUndoState();
+  const pts = state.polyDraft.map(p => ({...p}));
+  const area_mm2 = Math.abs(shoelaceArea(pts));
+  const perimeter_mm = polygonPerimeter(pts);
+  const poly = { id: state.nextPolyId++, pts, area_mm2, perimeter_mm, comment: '' };
+  state.polygons.push(poly);
+  state.polyDraft = null;
+  state._mousePos = null;
+  updatePolygonUI();
+  redrawOverlay();
+  markDirty();
+  document.getElementById('mode-info').textContent =
+    'Klikaj wierzchołki konturu · dwuklik lub Enter zamyka polygon · ESC anuluje';
+  toast(`Powierzchnia: ${(area_mm2/1e6).toFixed(2)} m²`);
 }
 
 function onCanvasMouseMove(e) {
@@ -1654,6 +1937,12 @@ function onCanvasMouseMove(e) {
     updateMagnifier(e.clientX, e.clientY, cx, cy);
   } else if ((state.mode === 'measure' || state.mode === 'rectified') && state.rectCanvas) {
     const { x_mm, y_mm } = canvasToMMCoords(e);
+    // Snap (tylko w measure, nie rectified)
+    if (state.mode === 'measure' && !state._dragPoint) {
+      const snapM = findSnapTarget(x_mm, y_mm, null);
+      state._snapTarget = snapM;
+      if (snapM) showSnapRing(e.clientX, e.clientY); else hideSnapRing();
+    }
     tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
@@ -1662,11 +1951,16 @@ function onCanvasMouseMove(e) {
   } else if (state.mode === 'segments' && state.rectCanvas) {
     const { x_mm, y_mm } = canvasToMMCoords(e);
     state._mousePos = { x_mm, y_mm };
+    // Snap
+    const snapS = findSnapTarget(x_mm, y_mm, null);
+    state._snapTarget = snapS;
+    if (snapS) showSnapRing(e.clientX, e.clientY); else hideSnapRing();
     if (state.segmentDraft) {
-      const dx = x_mm - state.segmentDraft.x_mm, dy = y_mm - state.segmentDraft.y_mm;
+      const sx = snapS ? snapS.x_mm : x_mm, sy2 = snapS ? snapS.y_mm : y_mm;
+      const dx = sx - state.segmentDraft.x_mm, dy = sy2 - state.segmentDraft.y_mm;
       const dist = Math.sqrt(dx*dx + dy*dy);
       tooltip.textContent = `↔ ${dist.toFixed(0)} mm`;
-      redrawOverlay();  // już rerenderuje dla preview odcinka
+      redrawOverlay();
     } else {
       tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
       if (showCrosshair) redrawOverlay();
@@ -1674,8 +1968,27 @@ function onCanvasMouseMove(e) {
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
     tooltip.style.top = (e.clientY - 10) + 'px';
+  } else if (state.mode === 'polygon' && state.rectCanvas) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    state._mousePos = { x_mm, y_mm };
+    // Snap
+    const snapP = findSnapTarget(x_mm, y_mm, null);
+    state._snapTarget = snapP;
+    if (snapP) showSnapRing(e.clientX, e.clientY); else hideSnapRing();
+    if (state.polyDraft && state.polyDraft.length > 0) {
+      redrawOverlay();
+      const eff = snapP || { x_mm, y_mm };
+      tooltip.textContent = `X: ${eff.x_mm.toFixed(0)}mm  Y: ${eff.y_mm.toFixed(0)}mm`;
+    } else {
+      tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
+    }
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+    if (showCrosshair) redrawOverlay();
   } else {
     tooltip.style.display = 'none';
+    hideSnapRing();
   }
 }
 
@@ -1692,16 +2005,20 @@ function onCrosshairToggle() {
 function setMode(m) {
   state.mode = m;
   if (m !== 'corners') hideMagnifier();
-  ['corners','rectified','measure','segments'].forEach(t => {
+  ['corners','rectified','measure','segments','polygon'].forEach(t => {
     document.getElementById('tab-'+t).classList.toggle('active', t === m);
   });
-  // Resetuj draft przy wyjściu z trybu odcinków
+  // Resetuj drafty przy zmianie trybu
   if (m !== 'segments') { state.segmentDraft = null; state._mousePos = null; }
+  if (m !== 'polygon')  { state.polyDraft = null; }
+  state._dragPoint = null;
+  hideSnapRing();
   const infoMap = {
-    corners: 'Kliknij kolejno 4 narożniki płaszczyzny: TL → TR → BR → BL',
-    rectified: 'Widok prostowany — sprawdź rektyfikację, następnie przejdź do Pomiarów',
-    measure: 'Kliknij na prostowanym obrazie aby dodać punkt pomiarowy',
-    segments: 'Kliknij punkt A, potem B — odcinek zostanie zmierzony · ESC anuluje'
+    corners:  'Kliknij kolejno 4 narożniki płaszczyzny: TL → TR → BR → BL',
+    rectified:'Widok prostowany — sprawdź rektyfikację, następnie przejdź do Pomiarów',
+    measure:  'Kliknij aby dodać punkt · przeciągnij istniejący aby go przesunąć',
+    segments: 'Kliknij punkt A, potem B — odcinek zostanie zmierzony · ESC anuluje',
+    polygon:  'Klikaj wierzchołki konturu · dwuklik lub Enter zamyka polygon · ESC anuluje'
   };
   document.getElementById('mode-info').textContent = infoMap[m];
   renderCurrentMode();
@@ -1810,6 +2127,8 @@ function cloneState() {
     nextId: state.nextId,
     segments: state.segments.map(s => ({ ...s, a: {...s.a}, b: {...s.b} })),
     nextSegId: state.nextSegId,
+    polygons: state.polygons.map(p => ({ ...p, pts: p.pts.map(pt => ({...pt})) })),
+    nextPolyId: state.nextPolyId,
     H: state.H ? [...state.H] : null,
     Hinv: state.Hinv ? [...state.Hinv] : null
   };
@@ -1831,6 +2150,9 @@ function applySnapshot(snap) {
   state.nextId = snap.nextId;
   state.segments = (snap.segments || []).map(s => ({ ...s, a: {...s.a}, b: {...s.b} }));
   state.nextSegId = snap.nextSegId || 1;
+  state.polygons = (snap.polygons || []).map(p => ({ ...p, pts: p.pts.map(pt => ({...pt})) }));
+  state.nextPolyId = snap.nextPolyId || 1;
+  state.polyDraft = null;
   state.segmentDraft = null;
   state.H = snap.H ? [...snap.H] : null;
   state.Hinv = snap.Hinv ? [...snap.Hinv] : null;
@@ -1838,6 +2160,7 @@ function applySnapshot(snap) {
   tryComputeHomography();
   updateMeasurementUI();
   updateSegmentUI();
+  updatePolygonUI();
   redrawOverlay();
 }
 
@@ -1954,6 +2277,82 @@ function clearAllSegments() {
   updateSegmentUI();
   redrawOverlay();
   markDirty();
+}
+
+/* ═══════════════════════════════════════════════════════
+   POLYGON MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function updatePolygonUI() {
+  const list    = document.getElementById('poly-list');
+  const empty   = document.getElementById('poly-empty');
+  const btnClear = document.getElementById('btn-clear-polys');
+  const hasAny  = state.points.length > 0 || state.segments.length > 0 || state.polygons.length > 0;
+
+  if (state.polygons.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    btnClear.disabled = true;
+  } else {
+    empty.style.display = 'none';
+    btnClear.disabled = false;
+    list.innerHTML = state.polygons.map(poly => {
+      const areaM2 = (poly.area_mm2 / 1e6).toFixed(3);
+      const perimM = (poly.perimeter_mm / 1000).toFixed(2);
+      return `
+      <div class="poly-item">
+        <div class="poly-item-row">
+          <span class="poly-badge">${poly.id}</span>
+          <span class="poly-area">${areaM2} m²</span>
+          <span class="poly-meta">${poly.pts.length} wierzchołków<br>obw. ${perimM} m</span>
+          <button class="meas-mic ${poly.comment ? 'has-comment' : ''}" onclick="openPolyCommentModal(${poly.id})" title="Dodaj opis">🎙</button>
+          <button class="meas-del" onclick="deletePolygon(${poly.id})">×</button>
+        </div>
+        ${poly.comment ? `<div class="poly-note">${escapeHtml(poly.comment)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  // Raport i DXF aktywne gdy jest cokolwiek
+  const btnReport = document.getElementById('btn-report');
+  const btnDXF    = document.getElementById('btn-dxf');
+  if (btnReport) btnReport.disabled = !hasAny;
+  if (btnDXF)    btnDXF.disabled    = !hasAny;
+  updateUndoRedoUI();
+}
+
+function deletePolygon(id) {
+  pushUndoState();
+  state.polygons = state.polygons.filter(p => p.id !== id);
+  updatePolygonUI();
+  redrawOverlay();
+  markDirty();
+}
+
+function clearAllPolygons() {
+  if (state.polygons.length === 0) return;
+  pushUndoState();
+  state.polygons = [];
+  state.nextPolyId = 1;
+  state.polyDraft = null;
+  updatePolygonUI();
+  redrawOverlay();
+  markDirty();
+}
+
+let vmPolyMode = false;
+let vmPolyCurrentId = null;
+function openPolyCommentModal(polyId) {
+  const poly = state.polygons.find(p => p.id === polyId);
+  if (!poly) return;
+  vmPolyMode = true;
+  vmPolyCurrentId = polyId;
+  document.getElementById('vm-point-id').textContent =
+    `powierzchnia #${polyId} (${(poly.area_mm2/1e6).toFixed(2)} m²)`;
+  document.getElementById('vm-transcript').value = poly.comment || '';
+  document.getElementById('vm-rec-btn').classList.remove('recording');
+  document.getElementById('vm-rec-label').textContent = '● Nagraj';
+  document.getElementById('vm-rec-time').textContent = '';
+  document.getElementById('voice-modal').classList.add('open');
+  setTimeout(() => document.getElementById('vm-transcript').focus(), 100);
 }
 
 // Modal komentarza do odcinka (reużywa voice-modal z innym kontekstem)
@@ -2110,6 +2509,17 @@ window.addEventListener('keydown', e => {
     redrawOverlay();
     toast('Anulowano pierwszy punkt');
   }
+  if (e.code === 'Escape' && state.mode === 'polygon' && state.polyDraft) {
+    state.polyDraft = null;
+    state._mousePos = null;
+    redrawOverlay();
+    toast('Anulowano polygon');
+    document.getElementById('mode-info').textContent =
+      'Klikaj wierzchołki konturu · dwuklik lub Enter zamyka polygon · ESC anuluje';
+  }
+  if (e.code === 'Enter' && state.mode === 'polygon') {
+    closePolygon();
+  }
 });
 window.addEventListener('keyup',   e => { if (e.code === 'Space') { spaceDown = false; document.body.style.cursor = ''; } });
 
@@ -2120,17 +2530,58 @@ mainCanvas.addEventListener('mousedown', e => {
     panStartX = e.clientX; panStartY = e.clientY;
     panStartVpX = vp.panX; panStartVpY = vp.panY;
     mainCanvas.style.cursor = 'grabbing';
+    return;
+  }
+  // ── DRAG punktów w trybie 'measure' ──────────────────
+  if (state.mode === 'measure' && state.rectCanvas && e.button === 0) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    const DRAG_MM = 12;
+    const hit = state.points.find(pt =>
+      Math.hypot(pt.x_mm - x_mm, pt.y_mm - y_mm) < DRAG_MM
+    );
+    if (hit) {
+      e.preventDefault();
+      pushUndoState();
+      state._dragPoint = { id: hit.id };
+      mainCanvas.style.cursor = 'grabbing';
+    }
   }
 });
 window.addEventListener('mousemove', e => {
-  if (!isPanning) return;
-  vp.panX = panStartVpX + (e.clientX - panStartX);
-  vp.panY = panStartVpY + (e.clientY - panStartY);
-  clampPan();
-  applyTransform();
+  if (isPanning) {
+    vp.panX = panStartVpX + (e.clientX - panStartX);
+    vp.panY = panStartVpY + (e.clientY - panStartY);
+    clampPan();
+    applyTransform();
+    return;
+  }
+  // ── Obsługa drag punktu ───────────────────────────────
+  if (state._dragPoint) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    const pt = state.points.find(p => p.id === state._dragPoint.id);
+    if (pt) {
+      // Clamp do granic płaszczyzny
+      pt.x_mm = Math.max(0, Math.min(state.planeMM.w, x_mm));
+      pt.y_mm = Math.max(0, Math.min(state.planeMM.h, y_mm));
+      // Przelicz u_px/v_px z powrotem przez Hinv
+      if (state.Hinv) {
+        const Hinv = state.Hinv;
+        const w = Hinv[6]*pt.x_mm + Hinv[7]*pt.y_mm + Hinv[8];
+        pt.u_px = (Hinv[0]*pt.x_mm + Hinv[1]*pt.y_mm + Hinv[2]) / w;
+        pt.v_px = (Hinv[3]*pt.x_mm + Hinv[4]*pt.y_mm + Hinv[5]) / w;
+      }
+      updateMeasurementUI();
+      redrawOverlay();
+      markDirty();
+    }
+  }
 });
 window.addEventListener('mouseup', e => {
   if (isPanning) { isPanning = false; mainCanvas.style.cursor = 'crosshair'; }
+  if (state._dragPoint) {
+    state._dragPoint = null;
+    mainCanvas.style.cursor = 'crosshair';
+  }
 });
 
 /* ═══════════════════════════════════════════════════════
@@ -2156,7 +2607,9 @@ function buildProjectJSON() {
     },
     points: state.points,
     segments: state.segments,
-    nextSegId: state.nextSegId
+    nextSegId: state.nextSegId,
+    polygons: state.polygons,
+    nextPolyId: state.nextPolyId
   }, null, 2);
 }
 
@@ -2231,6 +2684,9 @@ function loadProject(proj, name) {
   state.nextId = state.points.length > 0 ? Math.max(...state.points.map(p=>p.id)) + 1 : 1;
   state.segments = (proj.segments || []).map(s => ({ ...s, a: {...s.a}, b: {...s.b} }));
   state.nextSegId = proj.nextSegId || (state.segments.length > 0 ? Math.max(...state.segments.map(s=>s.id)) + 1 : 1);
+  state.polygons = (proj.polygons || []).map(p => ({ ...p, pts: p.pts.map(pt => ({...pt})) }));
+  state.nextPolyId = proj.nextPolyId || (state.polygons.length > 0 ? Math.max(...state.polygons.map(p=>p.id)) + 1 : 1);
+  state.polyDraft = null;
   state.segmentDraft = null;
   state.undoStack = []; state.redoStack = [];
 
@@ -2244,7 +2700,8 @@ function loadProject(proj, name) {
   tryComputeHomography();
   updateMeasurementUI();
   updateSegmentUI();
-  toast(`Projekt "${state.projectName}" wczytany — ${state.points.length} pkt, ${state.segments.length} odcinków`);
+  updatePolygonUI();
+  toast(`Projekt "${state.projectName}" wczytany — ${state.points.length} pkt, ${state.segments.length} odc., ${state.polygons.length} pow.`);
   state.dirty = false;
 }
 
@@ -2259,6 +2716,7 @@ function newProject() {
     rectCanvas: null, rectImageData: null,
     points: [], nextId: 1,
     segments: [], nextSegId: 1, segmentDraft: null,
+    polygons: [], nextPolyId: 1, polyDraft: null,
     undoStack: [], redoStack: [],
     projectName: 'Nowy projekt', dirty: false
   });
@@ -2273,6 +2731,7 @@ function newProject() {
   tryComputeHomography();
   updateMeasurementUI();
   updateSegmentUI();
+  updatePolygonUI();
   setMode('corners');
   document.getElementById('drop-zone').classList.remove('hidden');
   canvasWrapper.classList.remove('visible');
@@ -2389,6 +2848,7 @@ function exportDXF() {
     { name:'POINTS',   color: COL_POINT,   ltype:'CONTINUOUS' },
     { name:'SEGMENTS', color: COL_SEG,     ltype:'CONTINUOUS' },
     { name:'DIMS',     color: COL_DIM,     ltype:'CONTINUOUS' },
+    { name:'POLYGONS', color: 3,           ltype:'CONTINUOUS' },  // zielony
     { name:'COMMENTS', color: COL_COMMENT, ltype:'CONTINUOUS' },
   ];
   layers.forEach(l => {
@@ -2462,7 +2922,28 @@ function exportDXF() {
     dxf += dxfPoint(b.x_mm, b.y_mm, 'SEGMENTS', COL_SEG);
   });
 
-  // ── 4. Komentarze (COMMENTS) ─────────────────────────
+  // ── 4. Polygony / powierzchnie (POLYGONS) ────────────
+  state.polygons.forEach(poly => {
+    if (poly.pts.length < 3) return;
+    // LWPOLYLINE (lekka polilinia) — R14+, ale SketchUp obsługuje
+    // Fallback: seria LINE tworzących zamknięty kontur
+    const n = poly.pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly.pts[i], b = poly.pts[(i+1)%n];
+      dxf += dxfLine(a.x_mm, a.y_mm, b.x_mm, b.y_mm, 'POLYGONS', 3);
+    }
+    // Wierzchołki
+    poly.pts.forEach(pt => dxf += dxfPoint(pt.x_mm, pt.y_mm, 'POLYGONS', 3));
+    // Etykieta powierzchni w centroidzie
+    const cx2 = poly.pts.reduce((s,p) => s + p.x_mm, 0) / n;
+    const cy2 = poly.pts.reduce((s,p) => s + p.y_mm, 0) / n;
+    const areaLabel = `P${poly.id}: ${(poly.area_mm2/1e6).toFixed(3)} m2`;
+    dxf += dxfText(cx2, cy2, areaLabel, textH * 0.6, 'POLYGONS', 3, 1);
+    const perimLabel = `obw. ${(poly.perimeter_mm/1000).toFixed(2)} m`;
+    dxf += dxfText(cx2, cy2 - textH * 0.7, perimLabel, smallH * 0.8, 'DIMS', COL_DIM, 1);
+  });
+
+  // ── 5. Komentarze (COMMENTS) ─────────────────────────
   state.points.forEach(pt => {
     if (!pt.comment) return;
     // Tekst komentarza — offset w górę od punktu
@@ -2530,14 +3011,22 @@ function closeVoiceModal() {
   stopRecording();
   document.getElementById('voice-modal').classList.remove('open');
   vmCurrentId = null;
-  vmSegmentMode = false;
-  vmSegCurrentId = null;
+  vmSegmentMode = false; vmSegCurrentId = null;
+  vmPolyMode = false;    vmPolyCurrentId = null;
 }
 
 function saveVoiceComment() {
   stopRecording();
   const text = document.getElementById('vm-transcript').value.trim();
-  if (vmSegmentMode && vmSegCurrentId !== null) {
+  if (vmPolyMode && vmPolyCurrentId !== null) {
+    const poly = state.polygons.find(p => p.id === vmPolyCurrentId);
+    if (poly) { pushUndoState(); poly.comment = text; }
+    vmPolyMode = false; vmPolyCurrentId = null;
+    closeVoiceModal();
+    updatePolygonUI();
+    markDirty();
+    toast('Opis powierzchni zapisany');
+  } else if (vmSegmentMode && vmSegCurrentId !== null) {
     // Zapis komentarza do odcinka
     const seg = state.segments.find(s => s.id === vmSegCurrentId);
     if (seg) { pushUndoState(); seg.comment = text; }
@@ -2682,7 +3171,20 @@ function showReport() {
   `).join('');
 
   const hasPoints = state.points.length > 0;
-  const hasSegs = state.segments.length > 0;
+  const hasSegs   = state.segments.length > 0;
+  const hasPolys  = state.polygons.length > 0;
+
+  const polyRows = state.polygons.map(poly => `
+    <tr>
+      <td class="td-id" style="background:#EAFAF1">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:#27AE60;color:#fff;font-size:9px;font-weight:700">${poly.id}</span>
+      </td>
+      <td class="td-coords">${poly.pts.length} wierzchołków</td>
+      <td class="td-dist" style="font-weight:700;color:#1E8449">${(poly.area_mm2/1e6).toFixed(3)} m²</td>
+      <td class="td-coords">${(poly.perimeter_mm/1000).toFixed(2)} m</td>
+      <td class="td-comment">${poly.comment ? escapeHtml(poly.comment) : '<em>brak opisu</em>'}</td>
+    </tr>
+  `).join('');
 
   container.innerHTML = `
     <div class="report-header-doc">
@@ -2695,7 +3197,7 @@ function showReport() {
       </div>
       <div class="rh-meta" style="margin-top:4px">
         <span><strong>Krawędzie:</strong> Góra ${state.edges.top}mm · Dół ${state.edges.bot}mm · Lewa ${state.edges.left}mm · Prawa ${state.edges.right}mm</span>
-        <span><strong>Punkty:</strong> ${state.points.length} &nbsp;·&nbsp; <strong>Odcinki:</strong> ${state.segments.length}</span>
+        <span><strong>Punkty:</strong> ${state.points.length} &nbsp;·&nbsp; <strong>Odcinki:</strong> ${state.segments.length} &nbsp;·&nbsp; <strong>Powierzchnie:</strong> ${state.polygons.length}</span>
       </div>
     </div>
 
@@ -2722,6 +3224,22 @@ function showReport() {
       </tr></thead>
       <tbody>${segRows}</tbody>
     </table>` : ''}
+
+    ${hasPolys ? `
+    <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#1E8449;margin-bottom:6px;margin-top:20px">Powierzchnie (polygony)</p>
+    <table class="report-table">
+      <thead><tr>
+        <th style="width:40px">Nr</th>
+        <th style="width:80px">Wierzch.</th>
+        <th style="width:90px">Powierzchnia</th>
+        <th style="width:90px">Obwód</th>
+        <th>Opis</th>
+      </tr></thead>
+      <tbody>${polyRows}</tbody>
+    </table>
+    <p style="font-size:9px;color:#666;margin-top:6px">
+      <strong>Suma powierzchni:</strong> ${(state.polygons.reduce((s,p)=>s+p.area_mm2,0)/1e6).toFixed(3)} m²
+    </p>` : ''}
 
     <div class="report-footer-doc">
       <span>Układ: (0,0) = lewy dolny narożnik · Y rośnie w górę</span>
@@ -3128,6 +3646,7 @@ updateCornerUI();
 tryComputeHomography();
 updateMeasurementUI();
 updateSegmentUI();
+updatePolygonUI();
 </script>
 </body>
 </html>
