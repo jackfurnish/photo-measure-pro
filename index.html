@@ -1,0 +1,2973 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Measure Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F5F4F0;
+  --surface: #FFFFFF;
+  --border: #E0DED8;
+  --primary: #2D2E2E;
+  --secondary: #757575;
+  --accent: #B8860B;
+  --accent-light: #F5EDD5;
+  --danger: #C0392B;
+  --success: #27AE60;
+  --sidebar-w: 300px;
+  --header-h: 52px;
+  --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--primary);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+/* ── HEADER ── */
+#header {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  user-select: none;
+}
+#header .logo {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--primary);
+}
+#header .logo span { color: var(--accent); }
+#header .sep { width: 1px; height: 20px; background: var(--border); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--primary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover { background: var(--bg); border-color: var(--secondary); }
+.btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.accent:hover { background: #9A7009; }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: #FDF0EF; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#header .spacer { flex: 1; }
+#header .project-name {
+  font-size: 12px;
+  color: var(--secondary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── LAYOUT ── */
+#main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-section {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.sidebar-section:last-child { border-bottom: none; }
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--secondary);
+  margin-bottom: 10px;
+}
+
+.field { margin-bottom: 10px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--secondary);
+  margin-bottom: 4px;
+}
+.field input[type="number"],
+.field input[type="text"],
+.field select {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font);
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+
+.field-row { display: flex; gap: 8px; }
+.field-row .field { flex: 1; }
+
+/* Corner list */
+.corner-list { list-style: none; }
+.corner-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 11px;
+  border-bottom: 1px solid var(--bg);
+}
+.corner-badge {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.corner-badge.set { background: var(--accent); color: #fff; }
+.corner-coords {
+  flex: 1;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+
+/* Measurement table */
+#meas-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.meas-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--bg);
+  font-size: 11px;
+}
+.meas-badge {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #E07B39;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  flex-shrink: 0;
+}
+.meas-coords { flex: 1; color: var(--secondary); font-size: 10px; font-variant-numeric: tabular-nums; }
+.meas-del {
+  width: 16px; height: 16px;
+  border: none; background: none;
+  cursor: pointer; color: var(--secondary);
+  font-size: 13px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px;
+}
+.meas-del:hover { background: #FDF0EF; color: var(--danger); }
+
+/* Status indicator */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--secondary);
+  margin-top: 6px;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.status-dot.ok { background: var(--success); }
+.status-dot.warn { background: #E07B39; }
+.status-dot.err { background: var(--danger); }
+
+/* ── WORKSPACE ── */
+#workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Mode tabs */
+#mode-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.mode-tab {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: var(--secondary);
+  background: transparent;
+  transition: all 0.15s;
+}
+.mode-tab.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.mode-tab:not(.active):hover { background: var(--bg); }
+#mode-bar .spacer { flex: 1; }
+#mode-bar .info-text { font-size: 11px; color: var(--secondary); }
+
+/* Canvas area */
+#canvas-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+#drop-zone {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--secondary);
+}
+#drop-zone.hidden { display: none; }
+#drop-zone .dz-icon { font-size: 48px; opacity: 0.4; }
+#drop-zone .dz-title { font-size: 16px; font-weight: 600; color: var(--primary); }
+#drop-zone .dz-sub { font-size: 12px; }
+#drop-zone .dz-border {
+  position: absolute;
+  inset: 20px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  pointer-events: none;
+}
+#drop-zone.dragover .dz-border { border-color: var(--accent); }
+
+#canvas-wrapper {
+  position: relative;
+  display: none;
+  will-change: transform;
+}
+#canvas-wrapper.visible { display: block; }
+
+canvas {
+  display: block;
+  cursor: crosshair;
+}
+#main-canvas { position: absolute; top: 0; left: 0; pointer-events: all; cursor: crosshair; }
+#img-canvas { display: block; pointer-events: none; }
+
+/* Tooltip */
+#tooltip {
+  position: fixed;
+  background: rgba(45,46,46,0.92);
+  color: #fff;
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  pointer-events: none;
+  display: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 9999;
+  transition: transform 0.3s ease;
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Zoom controls */
+#zoom-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+}
+.zoom-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.zoom-btn:hover { background: var(--bg); }
+
+/* RMS indicator */
+#rms-indicator {
+  font-size: 10px;
+  color: var(--secondary);
+  margin-left: auto;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── SEGMENTS ── */
+.seg-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bg);
+}
+.seg-item-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+}
+.seg-badge {
+  width: 20px; height: 20px; border-radius: 4px;
+  background: #2980B9; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; flex-shrink: 0;
+}
+.seg-dist {
+  font-weight: 700; font-size: 12px; color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.seg-coords { flex: 1; font-size: 9px; color: var(--secondary); line-height: 1.3; }
+.seg-note { font-size: 10px; color: var(--secondary); padding: 2px 0 0 26px; font-style: italic; }
+
+/* ── VOICE COMMENT BUTTON in measurement list ── */
+.meas-mic {
+  width: 20px; height: 20px;
+  border: none; background: none;
+  cursor: pointer; font-size: 13px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; flex-shrink: 0;
+  color: var(--secondary);
+}
+.meas-mic:hover { background: var(--accent-light); color: var(--accent); }
+.meas-mic.has-comment { color: var(--accent); }
+.meas-mic.recording { color: var(--danger); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.meas-note {
+  font-size: 10px; color: var(--secondary);
+  padding: 2px 0 2px 26px; line-height: 1.4;
+  font-style: italic; white-space: pre-wrap; word-break: break-word;
+}
+
+/* ── VOICE MODAL ── */
+#voice-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.45);
+  align-items: center; justify-content: center;
+}
+#voice-modal.open { display: flex; }
+#voice-modal-box {
+  background: var(--surface);
+  border-radius: 14px;
+  width: 420px; max-width: 95vw;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+#voice-modal-box h3 {
+  font-size: 15px; font-weight: 700; margin-bottom: 4px;
+}
+#voice-modal-box .vm-sub {
+  font-size: 11px; color: var(--secondary); margin-bottom: 16px;
+}
+#vm-transcript {
+  width: 100%; min-height: 80px; max-height: 160px;
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-family: var(--font); font-size: 12px;
+  resize: vertical; outline: none; background: var(--bg);
+  line-height: 1.5;
+}
+#vm-transcript:focus { border-color: var(--accent); }
+.vm-controls {
+  display: flex; gap: 8px; margin-top: 12px; align-items: center;
+}
+#vm-rec-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px; background: var(--surface);
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+#vm-rec-btn:hover { border-color: var(--accent); color: var(--accent); }
+#vm-rec-btn.recording { border-color: var(--danger); color: var(--danger); background: #FDF0EF; }
+#vm-rec-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0;
+}
+#vm-rec-btn.recording #vm-rec-indicator { background: var(--danger); animation: pulse 1s infinite; }
+.vm-spacer { flex: 1; }
+#vm-save-btn { }
+#vm-cancel-btn { }
+
+/* ── REPORT MODAL (A4) ── */
+#report-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.6);
+  align-items: flex-start; justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+#report-modal.open { display: flex; }
+#report-container {
+  background: #fff;
+  width: 794px; /* A4 width at 96dpi */
+  min-height: 1123px; /* A4 height at 96dpi */
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  padding: 60px 70px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #1a1a1a;
+  position: relative;
+  flex-shrink: 0;
+}
+.report-toolbar {
+  position: fixed;
+  top: 20px; right: 20px;
+  display: flex; gap: 8px; z-index: 2001;
+}
+.report-header-doc {
+  border-bottom: 2px solid #2D2E2E;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.report-header-doc h1 {
+  font-size: 20px; font-weight: 700; letter-spacing: -0.3px;
+}
+.report-header-doc .rh-meta {
+  font-size: 11px; color: #666; margin-top: 4px; display: flex; gap: 24px;
+}
+.report-table {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+.report-table th {
+  text-align: left; padding: 7px 8px;
+  background: #F5F4F0; border-bottom: 1px solid #ccc;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #555;
+}
+.report-table td {
+  padding: 8px 8px; border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+.report-table tr:last-child td { border-bottom: none; }
+.report-table .td-id {
+  width: 32px; font-weight: 700; color: #B8860B;
+  text-align: center;
+}
+.report-table .td-coords {
+  width: 120px; font-variant-numeric: tabular-nums;
+  font-size: 10px; color: #444;
+}
+.report-table .td-dist {
+  width: 70px; font-variant-numeric: tabular-nums;
+  font-size: 10px; color: #444;
+}
+.report-table .td-comment {
+  font-size: 11px; line-height: 1.5;
+}
+.report-table .td-comment em {
+  color: #aaa; font-style: italic;
+}
+.report-footer-doc {
+  margin-top: 40px; padding-top: 12px;
+  border-top: 1px solid #ddd;
+  font-size: 9px; color: #aaa;
+  display: flex; justify-content: space-between;
+}
+.point-badge-report {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #E07B39; color: #fff;
+  font-size: 9px; font-weight: 700;
+}
+
+@media print {
+  body > *:not(#report-modal) { display: none !important; }
+  #report-modal { position: static; background: none; padding: 0; display: block !important; overflow: visible; }
+  .report-toolbar { display: none !important; }
+  #report-container { box-shadow: none; border-radius: 0; width: 100%; min-height: unset; }
+  @page { size: A4; margin: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo">Photo<span>Measure</span> Pro</div>
+  <div class="sep"></div>
+  <button class="btn" onclick="newProject()">✦ Nowy</button>
+  <button class="btn" onclick="openProject()">Otwórz…</button>
+  <button class="btn" onclick="saveProject()">Zapisz</button>
+  <button class="btn" onclick="saveProjectAs()">Zapisz jako…</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="exportCSV()" id="btn-csv" disabled>CSV</button>
+  <button class="btn" onclick="exportJSON()" id="btn-json" disabled>JSON</button>
+  <button class="btn" onclick="exportDXF()" id="btn-dxf" disabled>DXF</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="showReport()" id="btn-report" disabled>📋 Lista A4</button>
+  <div class="spacer"></div>
+  <span class="project-name" id="project-name-label">Nowy projekt</span>
+  <div class="sep"></div>
+  <span style="font-size:10px;color:var(--secondary);letter-spacing:0.3px;white-space:nowrap">© JackFurnish</span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <!-- Image -->
+    <div class="sidebar-section">
+      <div class="section-title">Zdjęcie</div>
+      <button class="btn accent" style="width:100%" onclick="loadImageDialog()">Wczytaj zdjęcie…</button>
+      <div id="img-info" style="font-size:10px;color:var(--secondary);margin-top:6px;display:none"></div>
+    </div>
+
+    <!-- Plane dimensions -->
+    <div class="sidebar-section">
+      <div class="section-title">Wymiary płaszczyzny (mm)</div>
+      <p style="font-size:10px;color:var(--secondary);margin-bottom:8px">Zmierz każdą krawędź z osobna (błędy budowlane). Homografia użyje średnich.</p>
+      <div class="field-row">
+        <div class="field">
+          <label>↑ Góra (szerokość)</label>
+          <input type="number" id="edge-top" value="3600" min="1" step="1" onchange="onEdgeChange()">
+        </div>
+        <div class="field">
+          <label>↓ Dół (szerokość)</label>
+          <input type="number" id="edge-bot" value="3600" min="1" step="1" onchange="onEdgeChange()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>← Lewa (wysokość)</label>
+          <input type="number" id="edge-left" value="2600" min="1" step="1" onchange="onEdgeChange()">
+        </div>
+        <div class="field">
+          <label>→ Prawa (wysokość)</label>
+          <input type="number" id="edge-right" value="2600" min="1" step="1" onchange="onEdgeChange()">
+        </div>
+      </div>
+      <div id="edge-avg-info" style="font-size:10px;color:var(--secondary);margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:6px;display:none">
+        Średnia: <strong id="avg-w-lbl">—</strong> × <strong id="avg-h-lbl">—</strong> mm
+        &nbsp;·&nbsp; Δ szer: <span id="delta-w-lbl" style="color:var(--accent)">—</span> mm
+        &nbsp;·&nbsp; Δ wys: <span id="delta-h-lbl" style="color:var(--accent)">—</span> mm
+      </div>
+    </div>
+
+    <!-- Corner definition -->
+    <div class="sidebar-section">
+      <div class="section-title">Narożniki płaszczyzny</div>
+      <p style="font-size:10px;color:var(--secondary);margin-bottom:8px">Kliknij 4 narożniki na zdjęciu po kolei: TL → TR → BR → BL</p>
+      <ul class="corner-list" id="corner-list">
+        <li><span class="corner-badge" id="cb0">1</span><span class="corner-coords" id="cc0">—</span><button class="meas-del" onclick="clearCorner(0)">×</button></li>
+        <li><span class="corner-badge" id="cb1">2</span><span class="corner-coords" id="cc1">—</span><button class="meas-del" onclick="clearCorner(1)">×</button></li>
+        <li><span class="corner-badge" id="cb2">3</span><span class="corner-coords" id="cc2">—</span><button class="meas-del" onclick="clearCorner(2)">×</button></li>
+        <li><span class="corner-badge" id="cb3">4</span><span class="corner-coords" id="cc3">—</span><button class="meas-del" onclick="clearCorner(3)">×</button></li>
+      </ul>
+      <div class="status-row" id="homography-status">
+        <span class="status-dot" id="hom-dot"></span>
+        <span id="hom-text">Ustaw 4 narożniki</span>
+        <span id="rms-indicator"></span>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="btn" style="flex:1" onclick="clearAllCorners()">Wyczyść</button>
+        <button class="btn accent" style="flex:1" id="btn-rectify" onclick="rectifyImage()" disabled>Prostuj →</button>
+      </div>
+    </div>
+
+    <!-- Measurements -->
+    <div class="sidebar-section">
+      <div class="section-title">Pomiary</div>
+      <div id="meas-list"></div>
+      <div id="meas-empty" style="font-size:11px;color:var(--secondary)">Brak punktów pomiarowych</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="btn danger" style="flex:1" onclick="clearAllMeasurements()" id="btn-clear-meas" disabled>Wyczyść</button>
+      </div>
+    </div>
+
+    <!-- Segments -->
+    <div class="sidebar-section" id="segments-section">
+      <div class="section-title">Odcinki</div>
+      <p style="font-size:10px;color:var(--secondary);margin-bottom:8px" id="seg-hint">Przejdź do zakładki "4. Odcinki" i kliknij dwa punkty na obrazie</p>
+      <div id="seg-list"></div>
+      <div id="seg-empty" style="font-size:11px;color:var(--secondary)">Brak odcinków</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="btn danger" style="flex:1" onclick="clearAllSegments()" id="btn-clear-segs" disabled>Wyczyść</button>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="sidebar-section">
+      <div class="section-title">Opcje widoku</div>
+      <div class="field">
+        <label>Szerokość rektyfikacji (px)</label>
+        <select id="rect-width" onchange="onRectWidthChange()">
+          <option value="1200">1200 px</option>
+          <option value="1600" selected>1600 px</option>
+          <option value="2000">2000 px</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="show-grid" onchange="redrawOverlay()"> Siatka (co 100mm)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="show-corners" checked onchange="redrawOverlay()"> Narożniki
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="show-crosshair" onchange="onCrosshairToggle()"> Celownik (crosshair)
+        </label>
+      </div>
+    </div>
+
+    <!-- Undo/Redo -->
+    <div class="sidebar-section">
+      <div class="section-title">Edycja</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" style="flex:1" onclick="undo()" id="btn-undo" disabled>↩ Cofnij</button>
+        <button class="btn" style="flex:1" onclick="redo()" id="btn-redo" disabled>↪ Ponów</button>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- WORKSPACE -->
+  <div id="workspace">
+
+    <!-- Mode bar -->
+    <div id="mode-bar">
+      <button class="mode-tab active" id="tab-corners" onclick="setMode('corners')">1. Narożniki</button>
+      <button class="mode-tab" id="tab-rectified" onclick="setMode('rectified')">2. Rektyfikacja</button>
+      <button class="mode-tab" id="tab-measure" onclick="setMode('measure')">3. Punkty</button>
+      <button class="mode-tab" id="tab-segments" onclick="setMode('segments')">4. Odcinki</button>
+      <div class="spacer"></div>
+      <span class="info-text" id="mode-info">Wczytaj zdjęcie i zaznacz 4 narożniki płaszczyzny</span>
+    </div>
+
+    <!-- Canvas area -->
+    <div id="canvas-area">
+      <!-- Drop zone -->
+      <div id="drop-zone">
+        <div class="dz-border"></div>
+        <div class="dz-icon">📐</div>
+        <div class="dz-title">Wczytaj zdjęcie</div>
+        <div class="dz-sub">Przeciągnij tutaj lub kliknij "Wczytaj zdjęcie"</div>
+        <button class="btn accent" style="margin-top:4px" onclick="loadImageDialog()">Wybierz plik…</button>
+      </div>
+
+      <!-- Canvas wrapper -->
+      <div id="canvas-wrapper">
+        <canvas id="img-canvas"></canvas>
+        <canvas id="main-canvas"></canvas>
+      </div>
+
+      <!-- Zoom controls -->
+      <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset">⊙</button>
+      </div>
+    </div>
+  </div><!-- /workspace -->
+</div><!-- /main -->
+
+<div id="tooltip"></div>
+<div id="toast"></div>
+
+<input type="file" id="file-input-img" accept="image/jpeg,image/png,image/tiff" style="display:none" onchange="onImageFileSelected(event)">
+<input type="file" id="file-input-proj" accept=".pmproj,.json" style="display:none" onchange="onProjectFileSelected(event)">
+
+<!-- VOICE COMMENT MODAL -->
+<div id="voice-modal">
+  <div id="voice-modal-box">
+    <h3 id="vm-title">Komentarz do punktu #<span id="vm-point-id"></span></h3>
+    <div class="vm-sub">Nagraj opis lub wpisz go ręcznie</div>
+    <textarea id="vm-transcript" placeholder="Nagrany lub wpisany opis punktu…"></textarea>
+    <div class="vm-controls">
+      <button id="vm-rec-btn" onclick="toggleVoiceRecording()">
+        <span id="vm-rec-indicator"></span>
+        <span id="vm-rec-label">● Nagraj</span>
+      </button>
+      <span id="vm-rec-time" style="font-size:11px;color:var(--secondary)"></span>
+      <div class="vm-spacer"></div>
+      <button class="btn" id="vm-cancel-btn" onclick="closeVoiceModal()">Anuluj</button>
+      <button class="btn accent" id="vm-save-btn" onclick="saveVoiceComment()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT MODAL (A4) -->
+<div id="report-modal">
+  <div class="report-toolbar">
+    <button class="btn accent" onclick="printReport()">🖨 Drukuj listę</button>
+    <button class="btn accent" onclick="printWithPhoto()" id="btn-print-photo" style="background:#1A5276">🖼 Drukuj ze zdjęciem</button>
+    <button class="btn" onclick="saveAnnotatedPNG()" id="btn-save-png">💾 Zapisz PNG</button>
+    <button class="btn" onclick="saveReportHTML()">💾 Zapisz HTML</button>
+    <button class="btn" onclick="closeReport()">✕ Zamknij</button>
+  </div>
+  <div id="report-container">
+    <!-- wypełniane dynamicznie przez showReport() -->
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Polyfill: CanvasRenderingContext2D.roundRect (Safari <15.4, starsze Chrome) ── */
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    const rad = Math.min(r || 0, w / 2, h / 2);
+    this.beginPath();
+    this.moveTo(x + rad, y);
+    this.lineTo(x + w - rad, y);
+    this.arcTo(x + w, y, x + w, y + rad, rad);
+    this.lineTo(x + w, y + h - rad);
+    this.arcTo(x + w, y + h, x + w - rad, y + h, rad);
+    this.lineTo(x + rad, y + h);
+    this.arcTo(x, y + h, x, y + h - rad, rad);
+    this.lineTo(x, y + rad);
+    this.arcTo(x, y, x + rad, y, rad);
+    this.closePath();
+    return this;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+const state = {
+  mode: 'corners',           // 'corners' | 'rectified' | 'measure'
+  imageSrc: null,            // base64 or object-url
+  imageEl: null,             // HTMLImageElement
+  imageNaturalW: 0,
+  imageNaturalH: 0,
+  corners: [null, null, null, null],  // {x,y} in IMAGE coords
+  // Cztery krawędzie (błędy budowlane) — homografia używa średnich
+  edges: { top: 3600, bot: 3600, left: 2600, right: 2600 },
+  planeMM: { w: 3600, h: 2600 },  // obliczane jako średnie
+  H: null,                   // 3×3 homography img→mm
+  Hinv: null,                // 3×3 mm→img
+  pxPerMM: 0,
+  rectWidth: 1600,
+  rectHeight: 0,
+  rectImageData: null,       // cached rectified ImageData
+  rectCanvas: null,          // offscreen canvas
+  points: [],                // {id,x_mm,y_mm,u_px,v_px,comment:''}
+  nextId: 1,
+  segments: [],              // {id,a:{x_mm,y_mm},b:{x_mm,y_mm},dist_mm,comment:''}
+  nextSegId: 1,
+  segmentDraft: null,        // {x_mm,y_mm} — pierwszy punkt odcinka w trakcie rysowania
+  _cursorPos: null,          // {cx,cy} — pozycja kursora w px canvasu (dla crosshaira)
+  undoStack: [],
+  redoStack: [],
+  zoom: 1,
+  panX: 0, panY: 0,
+  projectPath: null,
+  projectName: 'Nowy projekt',
+  dirty: false,
+  cornerSetIndex: 0          // which corner to set next (0-3)
+};
+
+/* ═══════════════════════════════════════════════════════
+   MATH — SVD & HOMOGRAPHY (DLT)
+═══════════════════════════════════════════════════════ */
+
+// Multiply two 3×3 matrices (flat arrays, row-major)
+function mat3mul(A, B) {
+  const C = new Array(9).fill(0);
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 3; c++)
+      for (let k = 0; k < 3; k++)
+        C[r*3+c] += A[r*3+k] * B[k*3+c];
+  return C;
+}
+
+// Multiply 3×3 matrix by 3-vector
+function mat3vec(M, v) {
+  return [
+    M[0]*v[0] + M[1]*v[1] + M[2]*v[2],
+    M[3]*v[0] + M[4]*v[1] + M[5]*v[2],
+    M[6]*v[0] + M[7]*v[1] + M[8]*v[2]
+  ];
+}
+
+// Invert a 3×3 matrix
+function invertMat3(m) {
+  const [a,b,c,d,e,f,g,h,i] = m;
+  const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return null;
+  const inv = 1/det;
+  return [
+    (e*i-f*h)*inv, (c*h-b*i)*inv, (b*f-c*e)*inv,
+    (f*g-d*i)*inv, (a*i-c*g)*inv, (c*d-a*f)*inv,
+    (d*h-e*g)*inv, (b*g-a*h)*inv, (a*e-b*d)*inv
+  ];
+}
+
+// Apply 3×3 homography to point {x,y} — returns {x,y}
+function applyH(H, px, py) {
+  const w = H[6]*px + H[7]*py + H[8];
+  const rx = (H[0]*px + H[1]*py + H[2]) / w;
+  const ry = (H[3]*px + H[4]*py + H[5]) / w;
+  return { x: rx, y: ry };
+}
+
+/**
+ * DLT homography from 4 point correspondences.
+ * src[i] = {x,y} (source), dst[i] = {x,y} (destination)
+ * Returns 3×3 matrix H (flat, row-major, H[8]=1) such that dst ~ H*src
+ * Uses Gaussian elimination (no external SVD library needed for 4 pts).
+ */
+function computeHomographyDLT(src, dst) {
+  // Build 8×9 matrix A (from 4×2 equations)
+  const A = [];
+  for (let i = 0; i < 4; i++) {
+    const { x: xs, y: ys } = src[i];
+    const { x: xd, y: yd } = dst[i];
+    A.push([-xs, -ys, -1,  0,   0,  0, xd*xs, xd*ys, xd]);
+    A.push([ 0,   0,  0, -xs, -ys, -1, yd*xs, yd*ys, yd]);
+  }
+  // We solve Ah = 0 by setting h[8]=1, which gives 8 equations in 8 unknowns.
+  // Rearrange: bring last column to RHS.
+  const n = 8;
+  const M = A.map(row => row.slice(0, n));     // 8×8
+  const b = A.map(row => -row[n]);              // 8×1
+  // Gaussian elimination with partial pivoting
+  for (let col = 0; col < n; col++) {
+    // Find pivot
+    let maxVal = Math.abs(M[col][col]), maxRow = col;
+    for (let row = col+1; row < n; row++) {
+      const v = Math.abs(M[row][col]);
+      if (v > maxVal) { maxVal = v; maxRow = row; }
+    }
+    [M[col], M[maxRow]] = [M[maxRow], M[col]];
+    [b[col], b[maxRow]] = [b[maxRow], b[col]];
+    if (Math.abs(M[col][col]) < 1e-12) return null;
+    const pivot = M[col][col];
+    for (let j = col; j < n; j++) M[col][j] /= pivot;
+    b[col] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const factor = M[row][col];
+      for (let j = col; j < n; j++) M[row][j] -= factor * M[col][j];
+      b[row] -= factor * b[col];
+    }
+  }
+  const h = [...b, 1];
+  return h;  // flat 9-element array = 3×3 row-major
+}
+
+// Reprojection error RMS (src→H→dst, in dst space)
+function computeReprojectionError(H, src, dst) {
+  let sumSq = 0;
+  for (let i = 0; i < 4; i++) {
+    const p = applyH(H, src[i].x, src[i].y);
+    const dx = p.x - dst[i].x, dy = p.y - dst[i].y;
+    sumSq += dx*dx + dy*dy;
+  }
+  return Math.sqrt(sumSq / 4);
+}
+
+// Determinant 3×3
+function det3(m) {
+  return m[0]*(m[4]*m[8]-m[5]*m[7]) - m[1]*(m[3]*m[8]-m[5]*m[6]) + m[2]*(m[3]*m[7]-m[4]*m[6]);
+}
+
+/* ═══════════════════════════════════════════════════════
+   HOMOGRAPHY COMPUTATION
+═══════════════════════════════════════════════════════ */
+function computeHomography() {
+  const corners = state.corners;
+  if (corners.some(c => c === null)) return false;
+
+  // Użyj rzeczywistych wymiarów 4 krawędzi → narożniki w mm
+  const { top, bot, left, right } = state.edges;
+  // Uśredniamy szerokość i wysokość dla prostokąta docelowego
+  const W = (top + bot) / 2;
+  const H = (left + right) / 2;
+  state.planeMM.w = W;
+  state.planeMM.h = H;
+
+  // Docelowe narożniki: nieregularny trapez zamieniamy na prostokąt ze średnich
+  // (homografia DLT i tak wyciągnie najlepsze dopasowanie)
+  const src = corners.map(c => ({ x: c.x, y: c.y }));
+  // Układ współrzędnych: (0,0) = lewy DOLNY narożnik (jak w budownictwie)
+  // X rośnie w prawo, Y rośnie w górę
+  // Kolejność narożników kliknięcia: TL → TR → BR → BL
+  const dst = [
+    { x: 0,   y: left  },   // TL — x=0, y=wysokość_lewa (góra)
+    { x: top, y: right },   // TR — x=szerokość_góry, y=wysokość_prawa (góra)
+    { x: bot, y: 0     },   // BR — x=szerokość_dołu, y=0 (dół)
+    { x: 0,   y: 0     }    // BL — x=0, y=0 (lewy dolny = ORIGIN)
+  ];
+
+  const Hflat = computeHomographyDLT(src, dst);
+  if (!Hflat) return false;
+  if (Math.abs(det3(Hflat)) < 1e-12) return false;
+
+  const Hinv = invertMat3(Hflat);
+  if (!Hinv) return false;
+
+  state.H = Hflat;
+  state.Hinv = Hinv;
+
+  const rms = computeReprojectionError(Hflat, src, dst);
+  return rms;
+}
+
+/* ═══════════════════════════════════════════════════════
+   IMAGE RECTIFICATION  (bilinear, offscreen canvas)
+═══════════════════════════════════════════════════════ */
+function rectifyImage() {
+  if (!state.imageEl || state.H === null) return;
+
+  const rms = computeHomography();
+  if (rms === false) {
+    toast('Błąd: Nie można obliczyć homografii. Sprawdź narożniki.', 'err');
+    return;
+  }
+
+  // Wymiary canvas: max krawędź pozioma × max krawędź pionowa
+  const { top, bot, left, right } = state.edges;
+  const W_mm = Math.max(top, bot);   // szerokość canvasu = najdłuższa krawędź pozioma
+  const H_mm = Math.max(left, right); // wysokość canvasu = najdłuższa krawędź pionowa
+  const rw = state.rectWidth;
+  const rh = Math.round(rw * H_mm / W_mm);
+  state.rectHeight = rh;
+  state.pxPerMM = rw / W_mm;
+
+  // Source image data
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = state.imageNaturalW;
+  srcCanvas.height = state.imageNaturalH;
+  const srcCtx = srcCanvas.getContext('2d');
+  srcCtx.drawImage(state.imageEl, 0, 0);
+  const srcData = srcCtx.getImageData(0, 0, state.imageNaturalW, state.imageNaturalH);
+  const srcPx = srcData.data;
+  const srcW = state.imageNaturalW, srcH = state.imageNaturalH;
+
+  // Output canvas
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = rw;
+  offCanvas.height = rh;
+  const offCtx = offCanvas.getContext('2d');
+  const dstData = offCtx.createImageData(rw, rh);
+  const dstPx = dstData.data;
+
+  const Hinv = state.Hinv;
+  const pxPerMM = state.pxPerMM;
+
+  // For each destination pixel, map back to source
+  // Canvas: ry=0 = góra obrazu = max y_mm (Y odwrócone: 0 = dół)
+  for (let ry = 0; ry < rh; ry++) {
+    for (let rx = 0; rx < rw; rx++) {
+      const x_mm = rx / pxPerMM;
+      const y_mm = (rh - 1 - ry) / pxPerMM;  // odwrócona oś Y: góra canvasu = max mm
+
+      // mm → image pixel
+      const w = Hinv[6]*x_mm + Hinv[7]*y_mm + Hinv[8];
+      const u = (Hinv[0]*x_mm + Hinv[1]*y_mm + Hinv[2]) / w;
+      const v = (Hinv[3]*x_mm + Hinv[4]*y_mm + Hinv[5]) / w;
+
+      // Bilinear interpolation
+      const u0 = Math.floor(u), v0 = Math.floor(v);
+      const u1 = u0 + 1, v1 = v0 + 1;
+      const fu = u - u0, fv = v - v0;
+
+      const dstIdx = (ry * rw + rx) * 4;
+
+      if (u0 < 0 || v0 < 0 || u1 >= srcW || v1 >= srcH) {
+        dstPx[dstIdx+3] = 255;
+        continue;
+      }
+
+      for (let ch = 0; ch < 3; ch++) {
+        const c00 = srcPx[(v0*srcW+u0)*4+ch];
+        const c10 = srcPx[(v0*srcW+u1)*4+ch];
+        const c01 = srcPx[(v1*srcW+u0)*4+ch];
+        const c11 = srcPx[(v1*srcW+u1)*4+ch];
+        dstPx[dstIdx+ch] = Math.round(
+          c00*(1-fu)*(1-fv) + c10*fu*(1-fv) + c01*(1-fu)*fv + c11*fu*fv
+        );
+      }
+      dstPx[dstIdx+3] = 255;
+    }
+  }
+
+  offCtx.putImageData(dstData, 0, 0);
+  state.rectCanvas = offCanvas;
+  state.rectImageData = dstData;
+
+  setMode('rectified');
+  renderCurrentMode();
+  toast(`Rektyfikacja gotowa — ${rw}×${rh}px, ${(rms).toFixed(2)}mm RMS`);
+  markDirty();
+}
+
+/* ═══════════════════════════════════════════════════════
+   CANVAS RENDERING
+═══════════════════════════════════════════════════════ */
+const imgCanvas = document.getElementById('img-canvas');
+const mainCanvas = document.getElementById('main-canvas');
+const imgCtx = imgCanvas.getContext('2d');
+const mainCtx = mainCanvas.getContext('2d');
+const canvasWrapper = document.getElementById('canvas-wrapper');
+
+function getDisplaySize() {
+  const area = document.getElementById('canvas-area');
+  const aw = area.clientWidth - 40, ah = area.clientHeight - 40;
+  if (!state.imageEl) return { w: 800, h: 600 };
+
+  let iw, ih;
+  if (state.mode === 'corners') {
+    iw = state.imageNaturalW; ih = state.imageNaturalH;
+  } else {
+    iw = state.rectWidth; ih = state.rectHeight;
+  }
+  if (!iw || !ih) return { w: 800, h: 600 };
+
+  const scale = Math.min(aw/iw, ah/ih, 1);
+  return { w: Math.round(iw*scale), h: Math.round(ih*scale), scale };
+}
+
+function renderCurrentMode() {
+  if (!state.imageEl) {
+    document.getElementById('drop-zone').classList.remove('hidden');
+    canvasWrapper.classList.remove('visible');
+    return;
+  }
+  document.getElementById('drop-zone').classList.add('hidden');
+  canvasWrapper.classList.add('visible');
+
+  const { w, h, scale } = getDisplaySize();
+  imgCanvas.width = mainCanvas.width = w;
+  imgCanvas.height = mainCanvas.height = h;
+  canvasWrapper.style.width = w + 'px';
+  canvasWrapper.style.height = h + 'px';
+
+  imgCtx.clearRect(0, 0, w, h);
+  mainCtx.clearRect(0, 0, w, h);
+
+  if (state.mode === 'corners') {
+    imgCtx.drawImage(state.imageEl, 0, 0, w, h);
+  } else if ((state.mode === 'rectified' || state.mode === 'measure' || state.mode === 'segments') && state.rectCanvas) {
+    imgCtx.drawImage(state.rectCanvas, 0, 0, w, h);
+  }
+
+  redrawOverlay();
+}
+
+function redrawOverlay() {
+  if (!state.imageEl) return;
+  const { w, h, scale } = getDisplaySize();
+  mainCtx.clearRect(0, 0, w, h);
+
+  const showGrid = document.getElementById('show-grid').checked;
+  const showCorners = document.getElementById('show-corners').checked;
+
+  if (state.mode === 'corners') {
+    // Draw polygon between set corners
+    const pts = state.corners.filter(c => c !== null);
+    if (pts.length >= 2 && showCorners) {
+      mainCtx.strokeStyle = 'rgba(184,134,11,0.6)';
+      mainCtx.lineWidth = 1.5;
+      mainCtx.setLineDash([4,4]);
+      mainCtx.beginPath();
+      pts.forEach((p,i) => {
+        const sx = p.x * scale, sy = p.y * scale;
+        i === 0 ? mainCtx.moveTo(sx,sy) : mainCtx.lineTo(sx,sy);
+      });
+      if (pts.length === 4) mainCtx.closePath();
+      mainCtx.stroke();
+      mainCtx.setLineDash([]);
+    }
+    // Draw corner markers
+    if (showCorners) {
+      state.corners.forEach((c, i) => {
+        if (!c) return;
+        const sx = c.x * scale, sy = c.y * scale;
+        const labels = ['TL','TR','BR','BL'];
+        mainCtx.beginPath();
+        mainCtx.arc(sx, sy, 7, 0, Math.PI*2);
+        mainCtx.fillStyle = 'rgba(184,134,11,0.9)';
+        mainCtx.fill();
+        mainCtx.fillStyle = '#fff';
+        mainCtx.font = 'bold 9px Plus Jakarta Sans, sans-serif';
+        mainCtx.textAlign = 'center';
+        mainCtx.textBaseline = 'middle';
+        mainCtx.fillText(i+1, sx, sy);
+      });
+    }
+  } else if (state.mode === 'rectified' || state.mode === 'measure' || state.mode === 'segments') {
+    const ppm = state.pxPerMM;
+    const scale = w / state.rectWidth;
+
+    // Pomocnicza: mm → canvas px (Y odwrócone: y_mm=0 = dół canvasu)
+    const mmToCanvas = (x_mm, y_mm) => ({
+      sx: x_mm * ppm * scale,
+      sy: h - y_mm * ppm * scale   // odwrócona oś Y
+    });
+
+    // Grid
+    if (showGrid) {
+      const stepMM = 100;
+      mainCtx.strokeStyle = 'rgba(184,134,11,0.25)';
+      mainCtx.lineWidth = 0.5;
+      const W_mm = Math.max(state.edges.top, state.edges.bot);
+      const H_mm = Math.max(state.edges.left, state.edges.right);
+      const cols = Math.ceil(W_mm / stepMM);
+      const rows = Math.ceil(H_mm / stepMM);
+      for (let i = 0; i <= cols; i++) {
+        const x = i * stepMM * ppm * scale;
+        mainCtx.beginPath(); mainCtx.moveTo(x,0); mainCtx.lineTo(x,h); mainCtx.stroke();
+      }
+      for (let j = 0; j <= rows; j++) {
+        // j=0 → y_mm=0 → dół canvasu (h); j=max → góra
+        const cy = h - j * stepMM * ppm * scale;
+        mainCtx.beginPath(); mainCtx.moveTo(0,cy); mainCtx.lineTo(w,cy); mainCtx.stroke();
+      }
+      // Etykiety osi Y (co 500mm) przy lewej krawędzi
+      mainCtx.fillStyle = 'rgba(184,134,11,0.6)';
+      mainCtx.font = '9px Plus Jakarta Sans, sans-serif';
+      mainCtx.textAlign = 'left';
+      mainCtx.textBaseline = 'middle';
+      for (let j = 0; j <= rows; j++) {
+        const cy = h - j * stepMM * ppm * scale;
+        if (j % 5 === 0) mainCtx.fillText(`${j*stepMM}`, 3, cy);
+      }
+      // Etykiety osi X (co 500mm) przy dolnej krawędzi
+      mainCtx.textAlign = 'center';
+      mainCtx.textBaseline = 'bottom';
+      for (let i = 0; i <= cols; i++) {
+        const cx = i * stepMM * ppm * scale;
+        if (i % 5 === 0) mainCtx.fillText(`${i*stepMM}`, cx, h - 2);
+      }
+    }
+
+    // Measurement points
+    state.points.forEach(pt => {
+      const { sx, sy } = mmToCanvas(pt.x_mm, pt.y_mm);
+      mainCtx.beginPath();
+      mainCtx.arc(sx, sy, 8, 0, Math.PI*2);
+      mainCtx.fillStyle = 'rgba(224,123,57,0.85)';
+      mainCtx.fill();
+      mainCtx.strokeStyle = '#fff';
+      mainCtx.lineWidth = 1.5;
+      mainCtx.stroke();
+      mainCtx.fillStyle = '#fff';
+      mainCtx.font = 'bold 9px Plus Jakarta Sans, sans-serif';
+      mainCtx.textAlign = 'center';
+      mainCtx.textBaseline = 'middle';
+      mainCtx.fillText(pt.id, sx, sy);
+    });
+
+    // Lines between consecutive points
+    if (state.points.length >= 2) {
+      mainCtx.strokeStyle = 'rgba(224,123,57,0.5)';
+      mainCtx.lineWidth = 1;
+      mainCtx.setLineDash([3,3]);
+      mainCtx.beginPath();
+      state.points.forEach((pt,i) => {
+        const { sx, sy } = mmToCanvas(pt.x_mm, pt.y_mm);
+        i === 0 ? mainCtx.moveTo(sx,sy) : mainCtx.lineTo(sx,sy);
+      });
+      mainCtx.stroke();
+      mainCtx.setLineDash([]);
+
+      // Distance labels
+      for (let i = 1; i < state.points.length; i++) {
+        const a = state.points[i-1], b = state.points[i];
+        const dx = b.x_mm - a.x_mm, dy = b.y_mm - a.y_mm;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const { sx: mx, sy: my } = mmToCanvas((a.x_mm+b.x_mm)/2, (a.y_mm+b.y_mm)/2);
+        mainCtx.fillStyle = 'rgba(45,46,46,0.9)';
+        mainCtx.strokeStyle = 'rgba(255,255,255,0.8)';
+        mainCtx.lineWidth = 2.5;
+        mainCtx.font = 'bold 10px Plus Jakarta Sans, sans-serif';
+        mainCtx.textAlign = 'center';
+        mainCtx.textBaseline = 'bottom';
+        mainCtx.strokeText(`${dist.toFixed(0)}mm`, mx, my - 4);
+        mainCtx.fillText(`${dist.toFixed(0)}mm`, mx, my - 4);
+      }
+    }
+
+    // ── ODCINKI ──
+    state.segments.forEach((seg, idx) => {
+      const { sx: ax, sy: ay } = mmToCanvas(seg.a.x_mm, seg.a.y_mm);
+      const { sx: bx, sy: by } = mmToCanvas(seg.b.x_mm, seg.b.y_mm);
+      // Linia odcinka
+      mainCtx.beginPath();
+      mainCtx.moveTo(ax, ay); mainCtx.lineTo(bx, by);
+      mainCtx.strokeStyle = '#2980B9';
+      mainCtx.lineWidth = 2;
+      mainCtx.setLineDash([]);
+      mainCtx.stroke();
+      // Końcówki
+      [{ sx: ax, sy: ay }, { sx: bx, sy: by }].forEach(({ sx, sy }) => {
+        mainCtx.beginPath(); mainCtx.arc(sx, sy, 5, 0, Math.PI*2);
+        mainCtx.fillStyle = '#2980B9'; mainCtx.fill();
+        mainCtx.strokeStyle = '#fff'; mainCtx.lineWidth = 1.5; mainCtx.stroke();
+      });
+      // Etykieta w środku
+      const mx = (ax+bx)/2, my = (ay+by)/2;
+      const label = `${seg.dist_mm.toFixed(0)} mm`;
+      mainCtx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
+      mainCtx.textAlign = 'center'; mainCtx.textBaseline = 'bottom';
+      mainCtx.strokeStyle = 'rgba(255,255,255,0.9)'; mainCtx.lineWidth = 3;
+      mainCtx.strokeText(label, mx, my - 5);
+      mainCtx.fillStyle = '#1A5276'; mainCtx.fillText(label, mx, my - 5);
+      // Numer odcinka w kółku
+      const ang = Math.atan2(by - ay, bx - ax) - Math.PI/2;
+      const nx = mx + Math.cos(ang) * 10, ny = my + Math.sin(ang) * 10;
+      mainCtx.beginPath(); mainCtx.arc(nx, ny - 14, 8, 0, Math.PI*2);
+      mainCtx.fillStyle = '#2980B9'; mainCtx.fill();
+      mainCtx.fillStyle = '#fff';
+      mainCtx.font = 'bold 8px Plus Jakarta Sans, sans-serif';
+      mainCtx.textBaseline = 'middle';
+      mainCtx.fillText(seg.id, nx, ny - 14);
+    });
+
+    // ── DRAFT (pierwszy punkt zaznaczony, czekamy na drugi) ──
+    if (state.mode === 'segments' && state.segmentDraft && state._mousePos) {
+      const { sx: ax, sy: ay } = mmToCanvas(state.segmentDraft.x_mm, state.segmentDraft.y_mm);
+      const { sx: bx, sy: by } = mmToCanvas(state._mousePos.x_mm, state._mousePos.y_mm);
+      const dx = state._mousePos.x_mm - state.segmentDraft.x_mm;
+      const dy = state._mousePos.y_mm - state.segmentDraft.y_mm;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      // Linia preview
+      mainCtx.beginPath(); mainCtx.moveTo(ax, ay); mainCtx.lineTo(bx, by);
+      mainCtx.strokeStyle = 'rgba(41,128,185,0.6)';
+      mainCtx.lineWidth = 1.5; mainCtx.setLineDash([5,4]); mainCtx.stroke();
+      mainCtx.setLineDash([]);
+      // Punkt A
+      mainCtx.beginPath(); mainCtx.arc(ax, ay, 6, 0, Math.PI*2);
+      mainCtx.fillStyle = '#2980B9'; mainCtx.fill();
+      mainCtx.strokeStyle = '#fff'; mainCtx.lineWidth = 2; mainCtx.stroke();
+      // Live distance label
+      const mx = (ax+bx)/2, my2 = (ay+by)/2;
+      mainCtx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
+      mainCtx.textAlign = 'center'; mainCtx.textBaseline = 'bottom';
+      mainCtx.strokeStyle = 'rgba(255,255,255,0.9)'; mainCtx.lineWidth = 3;
+      mainCtx.strokeText(`${dist.toFixed(0)} mm`, mx, my2 - 5);
+      mainCtx.fillStyle = 'rgba(41,128,185,0.9)';
+      mainCtx.fillText(`${dist.toFixed(0)} mm`, mx, my2 - 5);
+    }
+
+    // Oznaczenie układu współrzędnych (lewy dolny narożnik)
+    const originSize = 14;
+    mainCtx.strokeStyle = 'rgba(184,134,11,0.8)';
+    mainCtx.lineWidth = 1.5;
+    // Oś X
+    mainCtx.beginPath(); mainCtx.moveTo(4, h-4); mainCtx.lineTo(4+originSize, h-4); mainCtx.stroke();
+    // Oś Y
+    mainCtx.beginPath(); mainCtx.moveTo(4, h-4); mainCtx.lineTo(4, h-4-originSize); mainCtx.stroke();
+    mainCtx.fillStyle = 'rgba(184,134,11,0.8)';
+    mainCtx.font = 'bold 8px Plus Jakarta Sans, sans-serif';
+    mainCtx.textAlign = 'left'; mainCtx.textBaseline = 'middle';
+    mainCtx.fillText('X', 4+originSize+2, h-4);
+    mainCtx.textAlign = 'left'; mainCtx.textBaseline = 'bottom';
+    mainCtx.fillText('Y', 4, h-4-originSize-1);
+  }
+
+  // ── CROSSHAIR ────────────────────────────────────────
+  // Rysowany zawsze na wierzchu, we wszystkich trybach z obrazem
+  const showCrosshairEl = document.getElementById('show-crosshair');
+  if (showCrosshairEl && showCrosshairEl.checked && state._cursorPos) {
+    const { cx, cy } = state._cursorPos;
+    const gap = 12;       // pusta strefa wokół kursora (px)
+    const lineAlpha = 0.55;
+
+    mainCtx.save();
+    mainCtx.setLineDash([]);
+
+    // Cień (czarny, lekki) — poprawia czytelność na jasnym tle
+    mainCtx.strokeStyle = `rgba(0,0,0,${lineAlpha * 0.4})`;
+    mainCtx.lineWidth = 2.5;
+    // pozioma — lewa gałąź
+    mainCtx.beginPath(); mainCtx.moveTo(0, cy); mainCtx.lineTo(cx - gap, cy); mainCtx.stroke();
+    // pozioma — prawa gałąź
+    mainCtx.beginPath(); mainCtx.moveTo(cx + gap, cy); mainCtx.lineTo(w, cy); mainCtx.stroke();
+    // pionowa — górna gałąź
+    mainCtx.beginPath(); mainCtx.moveTo(cx, 0); mainCtx.lineTo(cx, cy - gap); mainCtx.stroke();
+    // pionowa — dolna gałąź
+    mainCtx.beginPath(); mainCtx.moveTo(cx, cy + gap); mainCtx.lineTo(cx, h); mainCtx.stroke();
+
+    // Właściwe linie (białe + bardzo cienkie)
+    mainCtx.strokeStyle = `rgba(255,255,255,${lineAlpha})`;
+    mainCtx.lineWidth = 1;
+    mainCtx.beginPath(); mainCtx.moveTo(0, cy); mainCtx.lineTo(cx - gap, cy); mainCtx.stroke();
+    mainCtx.beginPath(); mainCtx.moveTo(cx + gap, cy); mainCtx.lineTo(w, cy); mainCtx.stroke();
+    mainCtx.beginPath(); mainCtx.moveTo(cx, 0); mainCtx.lineTo(cx, cy - gap); mainCtx.stroke();
+    mainCtx.beginPath(); mainCtx.moveTo(cx, cy + gap); mainCtx.lineTo(cx, h); mainCtx.stroke();
+
+    // Mały kwadracik w centrum (cel)
+    const sq = 3;
+    mainCtx.fillStyle = `rgba(255,255,255,${lineAlpha})`;
+    mainCtx.strokeStyle = `rgba(0,0,0,${lineAlpha * 0.5})`;
+    mainCtx.lineWidth = 0.8;
+    mainCtx.beginPath();
+    mainCtx.rect(cx - sq, cy - sq, sq*2, sq*2);
+    mainCtx.fill();
+    mainCtx.stroke();
+
+    mainCtx.restore();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MOUSE INTERACTION
+═══════════════════════════════════════════════════════ */
+mainCanvas.addEventListener('click', onCanvasClick);
+mainCanvas.addEventListener('mousemove', onCanvasMouseMove);
+mainCanvas.addEventListener('mouseleave', () => {
+  document.getElementById('tooltip').style.display = 'none';
+  if (state._cursorPos) {
+    state._cursorPos = null;
+    redrawOverlay();
+  }
+});
+
+function canvasToImageCoords(e) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const scaleX = state.imageNaturalW / mainCanvas.width;
+  const scaleY = state.imageNaturalH / mainCanvas.height;
+  return { x: cx * scaleX, y: cy * scaleY, cx, cy };
+}
+
+function canvasToMMCoords(e) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const scale = mainCanvas.width / state.rectWidth;
+  const x_mm = cx / scale / state.pxPerMM;
+  // Odwrócona oś Y: klik w dole canvasu = y_mm bliskie 0
+  const y_mm = (mainCanvas.height - cy) / scale / state.pxPerMM;
+  return { x_mm, y_mm, cx, cy };
+}
+
+function onCanvasClick(e) {
+  if (isPanning || spaceDown) return;   // ignoruj klik po panie
+  if (state.mode === 'corners' && state.imageEl) {
+    const { x, y } = canvasToImageCoords(e);
+    const ci = state.cornerSetIndex;
+    if (ci < 4) {
+      pushUndoState();
+      state.corners[ci] = { x, y };
+      state.cornerSetIndex = ci + 1;
+      updateCornerUI();
+      tryComputeHomography();
+      redrawOverlay();
+    }
+  } else if (state.mode === 'measure' && state.rectCanvas) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    if (x_mm < 0 || y_mm < 0 || x_mm > state.planeMM.w || y_mm > state.planeMM.h) return;
+    pushUndoState();
+    const Hinv = state.Hinv;
+    const w = Hinv[6]*x_mm + Hinv[7]*y_mm + Hinv[8];
+    const u_px = (Hinv[0]*x_mm + Hinv[1]*y_mm + Hinv[2]) / w;
+    const v_px = (Hinv[3]*x_mm + Hinv[4]*y_mm + Hinv[5]) / w;
+    state.points.push({ id: state.nextId++, x_mm, y_mm, u_px, v_px, comment: '' });
+    updateMeasurementUI();
+    redrawOverlay();
+    markDirty();
+  } else if (state.mode === 'segments' && state.rectCanvas) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    if (x_mm < 0 || y_mm < 0 || x_mm > state.planeMM.w || y_mm > state.planeMM.h) return;
+    if (!state.segmentDraft) {
+      // Pierwszy punkt — zapamiętaj
+      state.segmentDraft = { x_mm, y_mm };
+      document.getElementById('mode-info').textContent = `Punkt A: X=${x_mm.toFixed(0)} Y=${y_mm.toFixed(0)} mm — kliknij drugi punkt (B)`;
+      redrawOverlay();
+    } else {
+      // Drugi punkt — utwórz odcinek
+      pushUndoState();
+      const a = state.segmentDraft;
+      const b = { x_mm, y_mm };
+      const dx = b.x_mm - a.x_mm, dy = b.y_mm - a.y_mm;
+      const dist_mm = Math.sqrt(dx*dx + dy*dy);
+      const seg = { id: state.nextSegId++, a: {...a}, b: {...b}, dist_mm, comment: '' };
+      state.segments.push(seg);
+      state.segmentDraft = null;
+      state._mousePos = null;
+      updateSegmentUI();
+      redrawOverlay();
+      markDirty();
+      // Od razu otwórz modal opisu
+      openSegmentCommentModal(seg.id);
+    }
+  }
+}
+
+function onCanvasMouseMove(e) {
+  const tooltip = document.getElementById('tooltip');
+  const showCrosshair = document.getElementById('show-crosshair').checked;
+
+  // Aktualizuj pozycję kursora w układzie canvasu (do crosshaira)
+  if (showCrosshair && state.imageEl) {
+    const rect = mainCanvas.getBoundingClientRect();
+    state._cursorPos = {
+      cx: (e.clientX - rect.left) * (mainCanvas.width  / rect.width),
+      cy: (e.clientY - rect.top)  * (mainCanvas.height / rect.height)
+    };
+  }
+
+  if (state.mode === 'corners' && state.imageEl) {
+    const { x, y } = canvasToImageCoords(e);
+    tooltip.textContent = `${Math.round(x)}px, ${Math.round(y)}px`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+    if (showCrosshair) redrawOverlay();
+  } else if ((state.mode === 'measure' || state.mode === 'rectified') && state.rectCanvas) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+    if (showCrosshair) redrawOverlay();
+  } else if (state.mode === 'segments' && state.rectCanvas) {
+    const { x_mm, y_mm } = canvasToMMCoords(e);
+    state._mousePos = { x_mm, y_mm };
+    if (state.segmentDraft) {
+      const dx = x_mm - state.segmentDraft.x_mm, dy = y_mm - state.segmentDraft.y_mm;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      tooltip.textContent = `↔ ${dist.toFixed(0)} mm`;
+      redrawOverlay();  // już rerenderuje dla preview odcinka
+    } else {
+      tooltip.textContent = `X: ${x_mm.toFixed(0)}mm  Y: ${y_mm.toFixed(0)}mm`;
+      if (showCrosshair) redrawOverlay();
+    }
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+  } else {
+    tooltip.style.display = 'none';
+  }
+}
+
+function onCrosshairToggle() {
+  if (!document.getElementById('show-crosshair').checked) {
+    state._cursorPos = null;
+  }
+  redrawOverlay();
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODE MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function setMode(m) {
+  state.mode = m;
+  ['corners','rectified','measure','segments'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === m);
+  });
+  // Resetuj draft przy wyjściu z trybu odcinków
+  if (m !== 'segments') { state.segmentDraft = null; state._mousePos = null; }
+  const infoMap = {
+    corners: 'Kliknij kolejno 4 narożniki płaszczyzny: TL → TR → BR → BL',
+    rectified: 'Widok prostowany — sprawdź rektyfikację, następnie przejdź do Pomiarów',
+    measure: 'Kliknij na prostowanym obrazie aby dodać punkt pomiarowy',
+    segments: 'Kliknij punkt A, potem B — odcinek zostanie zmierzony · ESC anuluje'
+  };
+  document.getElementById('mode-info').textContent = infoMap[m];
+  renderCurrentMode();
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI UPDATES
+═══════════════════════════════════════════════════════ */
+function updateCornerUI() {
+  const labels = ['TL','TR','BR','BL'];
+  state.corners.forEach((c, i) => {
+    const badge = document.getElementById('cb'+i);
+    const coords = document.getElementById('cc'+i);
+    if (c) {
+      badge.classList.add('set');
+      coords.textContent = `${Math.round(c.x)}, ${Math.round(c.y)} px`;
+    } else {
+      badge.classList.remove('set');
+      coords.textContent = '—';
+    }
+  });
+}
+
+function tryComputeHomography() {
+  const all4 = state.corners.every(c => c !== null);
+  const dot = document.getElementById('hom-dot');
+  const txt = document.getElementById('hom-text');
+  const rmsEl = document.getElementById('rms-indicator');
+  const btnRectify = document.getElementById('btn-rectify');
+
+  if (!all4) {
+    const n = state.corners.filter(c => c !== null).length;
+    dot.className = 'status-dot';
+    txt.textContent = `Ustaw ${4-n} narożni${4-n===1?'k':'ki'}`;
+    rmsEl.textContent = '';
+    btnRectify.disabled = true;
+    return;
+  }
+
+  const rms = computeHomography();
+  if (rms === false) {
+    dot.className = 'status-dot err';
+    txt.textContent = 'Błąd homografii';
+    rmsEl.textContent = '';
+    btnRectify.disabled = true;
+  } else {
+    const ok = rms < 10;
+    dot.className = 'status-dot ' + (ok ? 'ok' : 'warn');
+    txt.textContent = ok ? 'Homografia OK' : 'Duży błąd — sprawdź narożniki';
+    rmsEl.textContent = `RMS: ${rms.toFixed(1)}mm`;
+    btnRectify.disabled = false;
+  }
+}
+
+function updateMeasurementUI() {
+  const list = document.getElementById('meas-list');
+  const empty = document.getElementById('meas-empty');
+  const btnClear = document.getElementById('btn-clear-meas');
+  const btnCSV = document.getElementById('btn-csv');
+  const btnJSON = document.getElementById('btn-json');
+
+  if (state.points.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    btnClear.disabled = true;
+    btnCSV.disabled = true;
+    btnJSON.disabled = true;
+    document.getElementById('btn-dxf').disabled = true;
+    // Raport aktywny jeśli są punkty LUB odcinki
+    document.getElementById('btn-report').disabled = (state.segments.length === 0);
+  } else {
+    empty.style.display = 'none';
+    btnClear.disabled = false;
+    btnCSV.disabled = false;
+    btnJSON.disabled = false;
+    document.getElementById('btn-dxf').disabled = false;
+    list.innerHTML = state.points.map(pt => `
+      <div class="meas-item">
+        <span class="meas-badge">${pt.id}</span>
+        <span class="meas-coords">X:${pt.x_mm.toFixed(0)} Y:${pt.y_mm.toFixed(0)} mm</span>
+        <button class="meas-mic ${pt.comment ? 'has-comment' : ''}" onclick="openVoiceModal(${pt.id})" title="${pt.comment ? 'Edytuj komentarz' : 'Dodaj komentarz'}">🎙</button>
+        <button class="meas-del" onclick="deleteMeasurement(${pt.id})">×</button>
+      </div>
+      ${pt.comment ? `<div class="meas-note">${escapeHtml(pt.comment)}</div>` : ''}
+    `).join('');
+  document.getElementById('btn-report').disabled = false;
+  }
+  updateUndoRedoUI();
+}
+
+function updateUndoRedoUI() {
+  document.getElementById('btn-undo').disabled = state.undoStack.length === 0;
+  document.getElementById('btn-redo').disabled = state.redoStack.length === 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UNDO / REDO
+═══════════════════════════════════════════════════════ */
+function cloneState() {
+  return {
+    corners: state.corners.map(c => c ? {...c} : null),
+    cornerSetIndex: state.cornerSetIndex,
+    edges: { ...state.edges },
+    planeMM: { ...state.planeMM },
+    points: state.points.map(p => ({...p})),
+    nextId: state.nextId,
+    segments: state.segments.map(s => ({ ...s, a: {...s.a}, b: {...s.b} })),
+    nextSegId: state.nextSegId,
+    H: state.H ? [...state.H] : null,
+    Hinv: state.Hinv ? [...state.Hinv] : null
+  };
+}
+
+function pushUndoState() {
+  state.undoStack.push(cloneState());
+  if (state.undoStack.length > 50) state.undoStack.shift();
+  state.redoStack = [];
+  updateUndoRedoUI();
+}
+
+function applySnapshot(snap) {
+  state.corners = snap.corners.map(c => c ? {...c} : null);
+  state.cornerSetIndex = snap.cornerSetIndex;
+  state.edges = { ...snap.edges };
+  state.planeMM = { ...snap.planeMM };
+  state.points = snap.points.map(p => ({...p}));
+  state.nextId = snap.nextId;
+  state.segments = (snap.segments || []).map(s => ({ ...s, a: {...s.a}, b: {...s.b} }));
+  state.nextSegId = snap.nextSegId || 1;
+  state.segmentDraft = null;
+  state.H = snap.H ? [...snap.H] : null;
+  state.Hinv = snap.Hinv ? [...snap.Hinv] : null;
+  updateCornerUI();
+  tryComputeHomography();
+  updateMeasurementUI();
+  updateSegmentUI();
+  redrawOverlay();
+}
+
+function undo() {
+  if (state.undoStack.length === 0) return;
+  state.redoStack.push(cloneState());
+  applySnapshot(state.undoStack.pop());
+}
+
+function redo() {
+  if (state.redoStack.length === 0) return;
+  state.undoStack.push(cloneState());
+  applySnapshot(state.redoStack.pop());
+}
+
+/* ═══════════════════════════════════════════════════════
+   IMAGE LOADING
+═══════════════════════════════════════════════════════ */
+function loadImageDialog() {
+  document.getElementById('file-input-img').click();
+}
+
+function onImageFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => loadImageFromSrc(ev.target.result, file.name);
+  reader.readAsDataURL(file);
+}
+
+function loadImageFromSrc(src, name) {
+  const img = new Image();
+  img.onload = () => {
+    state.imageEl = img;
+    state.imageSrc = src;
+    state.imageNaturalW = img.naturalWidth;
+    state.imageNaturalH = img.naturalHeight;
+    document.getElementById('img-info').style.display = '';
+    document.getElementById('img-info').textContent = `${name || ''} — ${img.naturalWidth}×${img.naturalHeight}px`;
+    setMode('corners');
+    renderCurrentMode();
+    markDirty();
+  };
+  img.src = src;
+}
+
+/* Drag & drop */
+const dropZone = document.getElementById('drop-zone');
+const canvasArea = document.getElementById('canvas-area');
+canvasArea.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+canvasArea.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+canvasArea.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) { toast('Nieobsługiwany format pliku', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => loadImageFromSrc(ev.target.result, file.name);
+  reader.readAsDataURL(file);
+});
+
+/* ═══════════════════════════════════════════════════════
+   SEGMENT MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function updateSegmentUI() {
+  const list = document.getElementById('seg-list');
+  const empty = document.getElementById('seg-empty');
+  const btnClear = document.getElementById('btn-clear-segs');
+  const btnReport = document.getElementById('btn-report');
+
+  if (state.segments.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    btnClear.disabled = true;
+  } else {
+    empty.style.display = 'none';
+    btnClear.disabled = false;
+    list.innerHTML = state.segments.map(seg => `
+      <div class="seg-item">
+        <div class="seg-item-row">
+          <span class="seg-badge">${seg.id}</span>
+          <span class="seg-dist">${seg.dist_mm.toFixed(0)} mm</span>
+          <span class="seg-coords">A: ${seg.a.x_mm.toFixed(0)},${seg.a.y_mm.toFixed(0)}<br>B: ${seg.b.x_mm.toFixed(0)},${seg.b.y_mm.toFixed(0)}</span>
+          <button class="meas-mic ${seg.comment ? 'has-comment' : ''}" onclick="openSegmentCommentModal(${seg.id})" title="${seg.comment ? 'Edytuj opis' : 'Dodaj opis'}">🎙</button>
+          <button class="meas-del" onclick="deleteSegment(${seg.id})">×</button>
+        </div>
+        ${seg.comment ? `<div class="seg-note">${escapeHtml(seg.comment)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+  // Aktywuj raport i DXF jeśli są punkty LUB odcinki
+  const hasAny = (state.points.length > 0 || state.segments.length > 0);
+  if (btnReport) btnReport.disabled = !hasAny;
+  const btnDXF = document.getElementById('btn-dxf');
+  if (btnDXF) btnDXF.disabled = !hasAny;
+  updateUndoRedoUI();
+}
+
+function deleteSegment(id) {
+  pushUndoState();
+  state.segments = state.segments.filter(s => s.id !== id);
+  updateSegmentUI();
+  redrawOverlay();
+  markDirty();
+}
+
+function clearAllSegments() {
+  if (state.segments.length === 0) return;
+  pushUndoState();
+  state.segments = [];
+  state.nextSegId = 1;
+  state.segmentDraft = null;
+  updateSegmentUI();
+  redrawOverlay();
+  markDirty();
+}
+
+// Modal komentarza do odcinka (reużywa voice-modal z innym kontekstem)
+let vmSegmentMode = false;
+let vmSegCurrentId = null;
+
+function openSegmentCommentModal(segId) {
+  const seg = state.segments.find(s => s.id === segId);
+  if (!seg) return;
+  vmSegmentMode = true;
+  vmSegCurrentId = segId;
+  document.getElementById('vm-point-id').textContent = `odcinek #${segId} (${seg.dist_mm.toFixed(0)} mm)`;
+  document.getElementById('vm-transcript').value = seg.comment || '';
+  document.getElementById('vm-rec-btn').classList.remove('recording');
+  document.getElementById('vm-rec-label').textContent = '● Nagraj';
+  document.getElementById('vm-rec-time').textContent = '';
+  document.getElementById('voice-modal').classList.add('open');
+  setTimeout(() => document.getElementById('vm-transcript').focus(), 100);
+}
+
+// Nadpisz saveVoiceComment żeby obsługiwał oba tryby
+const _origSaveVoiceComment = typeof saveVoiceComment === 'function' ? saveVoiceComment : null;
+
+/* ═══════════════════════════════════════════════════════
+   CORNER MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function clearCorner(i) {
+  pushUndoState();
+  state.corners[i] = null;
+  state.cornerSetIndex = i;
+  updateCornerUI();
+  tryComputeHomography();
+  redrawOverlay();
+}
+
+function clearAllCorners() {
+  pushUndoState();
+  state.corners = [null, null, null, null];
+  state.cornerSetIndex = 0;
+  state.H = null; state.Hinv = null;
+  updateCornerUI();
+  tryComputeHomography();
+  redrawOverlay();
+}
+
+function onEdgeChange() {
+  const top   = parseFloat(document.getElementById('edge-top').value)   || 3600;
+  const bot   = parseFloat(document.getElementById('edge-bot').value)   || 3600;
+  const left  = parseFloat(document.getElementById('edge-left').value)  || 2600;
+  const right = parseFloat(document.getElementById('edge-right').value) || 2600;
+  state.edges = { top, bot, left, right };
+  state.planeMM.w = (top + bot) / 2;
+  state.planeMM.h = (left + right) / 2;
+
+  // Pokaż informację o odchyłkach
+  const dw = Math.abs(top - bot);
+  const dh = Math.abs(left - right);
+  const info = document.getElementById('edge-avg-info');
+  info.style.display = '';
+  document.getElementById('avg-w-lbl').textContent = state.planeMM.w.toFixed(0);
+  document.getElementById('avg-h-lbl').textContent = state.planeMM.h.toFixed(0);
+  document.getElementById('delta-w-lbl').textContent = dw.toFixed(0);
+  document.getElementById('delta-h-lbl').textContent = dh.toFixed(0);
+  document.getElementById('delta-w-lbl').style.color = dw > 20 ? 'var(--danger)' : 'var(--success)';
+  document.getElementById('delta-h-lbl').style.color = dh > 20 ? 'var(--danger)' : 'var(--success)';
+
+  tryComputeHomography();
+  markDirty();
+}
+
+function onRectWidthChange() {
+  state.rectWidth = parseInt(document.getElementById('rect-width').value);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MEASUREMENT MANAGEMENT
+═══════════════════════════════════════════════════════ */
+function deleteMeasurement(id) {
+  pushUndoState();
+  state.points = state.points.filter(p => p.id !== id);
+  updateMeasurementUI();
+  redrawOverlay();
+  markDirty();
+}
+
+function clearAllMeasurements() {
+  if (state.points.length === 0) return;
+  pushUndoState();
+  state.points = [];
+  state.nextId = 1;
+  updateMeasurementUI();
+  redrawOverlay();
+  markDirty();
+}
+
+/* ═══════════════════════════════════════════════════════
+   ZOOM & PAN — CSS transform na canvas-wrapper
+═══════════════════════════════════════════════════════ */
+const vp = { zoom: 1, panX: 0, panY: 0 };
+let isPanning = false, panStartX = 0, panStartY = 0, panStartVpX = 0, panStartVpY = 0;
+let spaceDown = false;
+
+function applyTransform() {
+  canvasWrapper.style.transform = `translate(${vp.panX}px,${vp.panY}px) scale(${vp.zoom})`;
+  canvasWrapper.style.transformOrigin = '0 0';
+}
+
+function clampPan() {
+  const area = document.getElementById('canvas-area');
+  const aw = area.clientWidth, ah = area.clientHeight;
+  const cw = canvasWrapper.offsetWidth * vp.zoom;
+  const ch = canvasWrapper.offsetHeight * vp.zoom;
+  // allow panning so image always covers at least part of view
+  const minX = Math.min(0, aw - cw);
+  const minY = Math.min(0, ah - ch);
+  vp.panX = Math.max(minX, Math.min(0, vp.panX));
+  vp.panY = Math.max(minY, Math.min(0, vp.panY));
+}
+
+function zoomAt(cx, cy, factor) {
+  // cx, cy in canvas-area coords
+  const newZoom = Math.min(16, Math.max(0.5, vp.zoom * factor));
+  const ratio = newZoom / vp.zoom;
+  vp.panX = cx - ratio * (cx - vp.panX);
+  vp.panY = cy - ratio * (cy - vp.panY);
+  vp.zoom = newZoom;
+  clampPan();
+  applyTransform();
+}
+
+function zoomIn()  { const r = canvasWrapper.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 1.25); }
+function zoomOut() { const r = canvasWrapper.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 0.8); }
+function resetZoom() { vp.zoom = 1; vp.panX = 0; vp.panY = 0; applyTransform(); renderCurrentMode(); }
+
+// Scroll wheel zoom
+document.getElementById('canvas-area').addEventListener('wheel', e => {
+  if (!state.imageEl) return;
+  e.preventDefault();
+  const area = document.getElementById('canvas-area');
+  const rect = area.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : 0.9;
+  zoomAt(cx, cy, factor);
+}, { passive: false });
+
+// Pan with spacebar+drag or middle mouse button
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') { spaceDown = true; document.body.style.cursor = 'grab'; }
+  if (e.code === 'Escape' && state.mode === 'segments' && state.segmentDraft) {
+    state.segmentDraft = null;
+    state._mousePos = null;
+    document.getElementById('mode-info').textContent = 'Kliknij punkt A, potem B — odcinek zostanie zmierzony';
+    redrawOverlay();
+    toast('Anulowano pierwszy punkt');
+  }
+});
+window.addEventListener('keyup',   e => { if (e.code === 'Space') { spaceDown = false; document.body.style.cursor = ''; } });
+
+mainCanvas.addEventListener('mousedown', e => {
+  if (spaceDown || e.button === 1) {
+    e.preventDefault();
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartVpX = vp.panX; panStartVpY = vp.panY;
+    mainCanvas.style.cursor = 'grabbing';
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  vp.panX = panStartVpX + (e.clientX - panStartX);
+  vp.panY = panStartVpY + (e.clientY - panStartY);
+  clampPan();
+  applyTransform();
+});
+window.addEventListener('mouseup', e => {
+  if (isPanning) { isPanning = false; mainCanvas.style.cursor = 'crosshair'; }
+});
+
+/* ═══════════════════════════════════════════════════════
+   PROJECT SAVE / LOAD
+═══════════════════════════════════════════════════════ */
+function buildProjectJSON() {
+  return JSON.stringify({
+    version: '1.0',
+    imageSrc: state.imageSrc,
+    plane: {
+      edges: state.edges,
+      width_mm: state.planeMM.w,
+      height_mm: state.planeMM.h,
+      corners_px: state.corners
+    },
+    homography: {
+      img_to_mm: state.H,
+      mm_to_img: state.Hinv
+    },
+    rectification: {
+      pxPerMM: state.pxPerMM,
+      rectWidth: state.rectWidth
+    },
+    points: state.points,
+    segments: state.segments,
+    nextSegId: state.nextSegId
+  }, null, 2);
+}
+
+function saveProject() {
+  const json = buildProjectJSON();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (state.projectName || 'projekt') + '.pmproj';
+  a.click();
+  URL.revokeObjectURL(url);
+  state.dirty = false;
+  toast('Projekt zapisany');
+}
+
+function saveProjectAs() {
+  const name = prompt('Nazwa projektu:', state.projectName || 'projekt');
+  if (name === null) return;
+  state.projectName = name.trim() || 'projekt';
+  document.getElementById('project-name-label').textContent = state.projectName;
+  saveProject();
+}
+
+function openProject() {
+  document.getElementById('file-input-proj').click();
+}
+
+function onProjectFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const proj = JSON.parse(ev.target.result);
+      loadProject(proj, file.name.replace('.pmproj',''));
+    } catch(err) {
+      toast('Błąd wczytywania projektu: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function loadProject(proj, name) {
+  state.projectName = name || 'Projekt';
+  document.getElementById('project-name-label').textContent = state.projectName;
+
+  // Wczytaj krawędzie (nowy format) lub fallback do starych wymiarów
+  if (proj.plane.edges) {
+    state.edges = { ...proj.plane.edges };
+  } else {
+    const w = proj.plane.width_mm || 3600;
+    const h = proj.plane.height_mm || 2600;
+    state.edges = { top: w, bot: w, left: h, right: h };
+  }
+  document.getElementById('edge-top').value   = state.edges.top;
+  document.getElementById('edge-bot').value   = state.edges.bot;
+  document.getElementById('edge-left').value  = state.edges.left;
+  document.getElementById('edge-right').value = state.edges.right;
+  state.planeMM.w = (state.edges.top + state.edges.bot) / 2;
+  state.planeMM.h = (state.edges.left + state.edges.right) / 2;
+  onEdgeChange(); // odśwież info o odchyłkach
+
+  state.corners = (proj.plane.corners_px || [null,null,null,null]).map(c => c ? {...c} : null);
+  state.cornerSetIndex = state.corners.filter(c=>c!==null).length;
+  state.H = proj.homography?.img_to_mm || null;
+  state.Hinv = proj.homography?.mm_to_img || null;
+  state.pxPerMM = proj.rectification?.pxPerMM || 0;
+  state.rectWidth = proj.rectification?.rectWidth || 1600;
+  state.points = (proj.points || []).map(p => ({...p}));
+  state.nextId = state.points.length > 0 ? Math.max(...state.points.map(p=>p.id)) + 1 : 1;
+  state.segments = (proj.segments || []).map(s => ({ ...s, a: {...s.a}, b: {...s.b} }));
+  state.nextSegId = proj.nextSegId || (state.segments.length > 0 ? Math.max(...state.segments.map(s=>s.id)) + 1 : 1);
+  state.segmentDraft = null;
+  state.undoStack = []; state.redoStack = [];
+
+  if (proj.imageSrc) {
+    loadImageFromSrc(proj.imageSrc, '');
+    // After image loads, also rebuild rectified canvas if we have H
+    const origLoad = state.imageEl;
+  }
+
+  updateCornerUI();
+  tryComputeHomography();
+  updateMeasurementUI();
+  updateSegmentUI();
+  toast(`Projekt "${state.projectName}" wczytany — ${state.points.length} pkt, ${state.segments.length} odcinków`);
+  state.dirty = false;
+}
+
+function newProject() {
+  if (state.dirty && !confirm('Niezapisane zmiany. Czy na pewno chcesz zacząć nowy projekt?')) return;
+  Object.assign(state, {
+    imageSrc: null, imageEl: null, imageNaturalW: 0, imageNaturalH: 0,
+    corners: [null,null,null,null], cornerSetIndex: 0,
+    edges: { top: 3600, bot: 3600, left: 2600, right: 2600 },
+    planeMM: { w: 3600, h: 2600 },
+    H: null, Hinv: null, pxPerMM: 0,
+    rectCanvas: null, rectImageData: null,
+    points: [], nextId: 1,
+    segments: [], nextSegId: 1, segmentDraft: null,
+    undoStack: [], redoStack: [],
+    projectName: 'Nowy projekt', dirty: false
+  });
+  document.getElementById('project-name-label').textContent = state.projectName;
+  document.getElementById('img-info').style.display = 'none';
+  document.getElementById('edge-top').value   = 3600;
+  document.getElementById('edge-bot').value   = 3600;
+  document.getElementById('edge-left').value  = 2600;
+  document.getElementById('edge-right').value = 2600;
+  document.getElementById('edge-avg-info').style.display = 'none';
+  updateCornerUI();
+  tryComputeHomography();
+  updateMeasurementUI();
+  updateSegmentUI();
+  setMode('corners');
+  document.getElementById('drop-zone').classList.remove('hidden');
+  canvasWrapper.classList.remove('visible');
+}
+
+/* ═══════════════════════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════════════════════ */
+function exportCSV() {
+  if (state.points.length === 0) { toast('Brak punktów do eksportu', 'warn'); return; }
+  const rows = ['id,x_mm,y_mm,u_px,v_px,komentarz'];
+  state.points.forEach(p => {
+    const comment = (p.comment || '').replace(/"/g, '""');
+    rows.push(`${p.id},${p.x_mm.toFixed(2)},${p.y_mm.toFixed(2)},${p.u_px.toFixed(1)},${p.v_px.toFixed(1)},"${comment}"`);
+  });
+  downloadText(rows.join('\n'), (state.projectName||'pomiary')+'.csv', 'text/csv');
+  toast('CSV wyeksportowany');
+}
+
+function exportJSON() {
+  if (state.points.length === 0) { toast('Brak punktów do eksportu', 'warn'); return; }
+  const data = { project: state.projectName, plane_mm: state.planeMM, points: state.points };
+  downloadText(JSON.stringify(data, null, 2), (state.projectName||'pomiary')+'.json', 'application/json');
+  toast('JSON wyeksportowany');
+}
+
+/* ═══════════════════════════════════════════════════════
+   DXF EXPORT — AutoCAD R12 ASCII, kompatybilny z SketchUp
+   Jednostki: milimetry (mm), płaszczyzna XY (Z=0)
+   Warstwy:
+     POINTS   — punkty pomiarowe (POINT + TEXT z numerem)
+     SEGMENTS — odcinki pomiarowe (LINE + TEXT z wymiarem)
+     BORDER   — obrys płaszczyzny (cztery LINE)
+     COMMENTS — etykiety opisów (TEXT)
+═══════════════════════════════════════════════════════ */
+function exportDXF() {
+  if (state.points.length === 0 && state.segments.length === 0) {
+    toast('Brak punktów ani odcinków do eksportu DXF', 'warn'); return;
+  }
+
+  // ── Pomocnicze: formatuj liczbę do DXF (6 miejsc po przecinku) ──
+  const f = n => Number(n).toFixed(6);
+
+  // ── Linia kodu DXF: "  {kod}\n{wartość}\n" ──
+  const g = (code, value) => `${String(code).padStart(3)}\n${value}\n`;
+
+  // ── Encja POINT ──────────────────────────────────────
+  function dxfPoint(x, y, layer, color) {
+    return g(0,'POINT') + g(8,layer) + g(62,color) + g(10,f(x)) + g(20,f(y)) + g(30,'0.000000');
+  }
+
+  // ── Encja LINE ───────────────────────────────────────
+  function dxfLine(x1, y1, x2, y2, layer, color) {
+    return g(0,'LINE') + g(8,layer) + g(62,color) +
+           g(10,f(x1)) + g(20,f(y1)) + g(30,'0.000000') +
+           g(11,f(x2)) + g(21,f(y2)) + g(31,'0.000000');
+  }
+
+  // ── Encja TEXT ───────────────────────────────────────
+  // height: wysokość tekstu w mm, hjust: 0=left 1=center 2=right
+  function dxfText(x, y, txt, height, layer, color, hjust) {
+    hjust = hjust || 0;
+    let s = g(0,'TEXT') + g(8,layer) + g(62,color) +
+            g(10,f(x)) + g(20,f(y)) + g(30,'0.000000') +
+            g(40,f(height)) + g(1,String(txt));
+    if (hjust !== 0) {
+      // wyrównanie wymaga powtórzenia punktu jako alignment point (kod 11,21,31)
+      s += g(72, hjust) + g(11,f(x)) + g(21,f(y)) + g(31,'0.000000');
+    }
+    return s;
+  }
+
+  // ── Kolory AutoCAD (ACI) ─────────────────────────────
+  const COL_POINT   = 30;  // pomarańczowy ≈ Red/Orange
+  const COL_SEG     = 5;   // niebieski
+  const COL_BORDER  = 252; // szary jasny
+  const COL_COMMENT = 8;   // szary ciemny
+  const COL_DIM     = 4;   // cyan (etykiety wymiarów)
+
+  // ── Dobierz rozsądną wysokość tekstu ─────────────────
+  // ~2% szerokości płaszczyzny, min 20 mm, max 150 mm
+  const planeW = state.planeMM.w || 3600;
+  const textH  = Math.max(20, Math.min(150, planeW * 0.02));
+  const smallH = textH * 0.7;
+
+  // ═══════════════════════════════════════════════════
+  // HEADER DXF (minimalne – SketchUp akceptuje R12)
+  // ═══════════════════════════════════════════════════
+  let dxf = '';
+
+  dxf += g(0,'SECTION') + g(2,'HEADER');
+  dxf += g(9,'$ACADVER')  + g(1,'AC1009');          // AutoCAD R12
+  dxf += g(9,'$INSUNITS') + g(70, 4);               // 4 = milimetry
+  dxf += g(9,'$MEASUREMENT') + g(70, 1);            // 1 = metryczny
+  // Extmin / Extmax — bounding box (SketchUp używa do fit view)
+  const allX = [0, planeW, ...state.points.map(p=>p.x_mm), ...state.segments.flatMap(s=>[s.a.x_mm,s.b.x_mm])];
+  const allY = [0, state.planeMM.h || 2600, ...state.points.map(p=>p.y_mm), ...state.segments.flatMap(s=>[s.a.y_mm,s.b.y_mm])];
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const minY = Math.min(...allY), maxY = Math.max(...allY);
+  dxf += g(9,'$EXTMIN') + g(10,f(minX-10)) + g(20,f(minY-10)) + g(30,'0.000000');
+  dxf += g(9,'$EXTMAX') + g(10,f(maxX+10)) + g(20,f(maxY+10)) + g(30,'0.000000');
+  dxf += g(9,'$LIMMIN') + g(10,f(minX-10)) + g(20,f(minY-10));
+  dxf += g(9,'$LIMMAX') + g(10,f(maxX+10)) + g(20,f(maxY+10));
+  dxf += g(0,'ENDSEC');
+
+  // ═══════════════════════════════════════════════════
+  // TABLES — warstwy (LAYER)
+  // ═══════════════════════════════════════════════════
+  dxf += g(0,'SECTION') + g(2,'TABLES');
+  dxf += g(0,'TABLE') + g(2,'LAYER') + g(70, 5);
+
+  const layers = [
+    { name:'BORDER',   color: COL_BORDER,  ltype:'CONTINUOUS' },
+    { name:'POINTS',   color: COL_POINT,   ltype:'CONTINUOUS' },
+    { name:'SEGMENTS', color: COL_SEG,     ltype:'CONTINUOUS' },
+    { name:'DIMS',     color: COL_DIM,     ltype:'CONTINUOUS' },
+    { name:'COMMENTS', color: COL_COMMENT, ltype:'CONTINUOUS' },
+  ];
+  layers.forEach(l => {
+    dxf += g(0,'LAYER') + g(2,l.name) + g(70,0) + g(62,l.color) + g(6,l.ltype);
+  });
+
+  dxf += g(0,'ENDTAB');
+  dxf += g(0,'ENDSEC');
+
+  // ═══════════════════════════════════════════════════
+  // ENTITIES
+  // ═══════════════════════════════════════════════════
+  dxf += g(0,'SECTION') + g(2,'ENTITIES');
+
+  // ── 1. Obrys płaszczyzny (BORDER) ───────────────────
+  // Narożniki w układzie Y-up: BL(0,0) → BR(bot,0) → TR(top,right) → TL(0,left) → BL
+  const { top, bot, left, right } = state.edges;
+  const borderPts = [
+    [0, 0],
+    [bot, 0],
+    [top, right],
+    [0, left],
+    [0, 0]   // zamknięcie
+  ];
+  for (let i = 0; i < borderPts.length - 1; i++) {
+    dxf += dxfLine(borderPts[i][0], borderPts[i][1], borderPts[i+1][0], borderPts[i+1][1], 'BORDER', COL_BORDER);
+  }
+  // Etykiety krawędzi
+  dxf += dxfText(bot/2, -textH*1.5, `Dol: ${bot} mm`,   smallH, 'BORDER', COL_BORDER, 1);
+  dxf += dxfText(top/2, right+textH, `Gora: ${top} mm`, smallH, 'BORDER', COL_BORDER, 1);
+  dxf += dxfText(-textH*0.5, left/2,  `Lewa: ${left} mm`, smallH, 'BORDER', COL_BORDER, 2);
+  dxf += dxfText(Math.max(top,bot)+textH*0.5, right/2, `Prawa: ${right} mm`, smallH, 'BORDER', COL_BORDER, 0);
+
+  // ── 2. Punkty pomiarowe (POINTS) ────────────────────
+  state.points.forEach(pt => {
+    // Marker POINT
+    dxf += dxfPoint(pt.x_mm, pt.y_mm, 'POINTS', COL_POINT);
+    // Kółko jako okrąg — SketchUp importuje CIRCLE jako łuk
+    dxf += g(0,'CIRCLE') + g(8,'POINTS') + g(62,COL_POINT) +
+           g(10,f(pt.x_mm)) + g(20,f(pt.y_mm)) + g(30,'0.000000') +
+           g(40,f(textH * 0.4));
+    // Numer punktu
+    dxf += dxfText(pt.x_mm, pt.y_mm + textH*0.5, String(pt.id), textH*0.5, 'POINTS', COL_POINT, 1);
+    // Współrzędne
+    dxf += dxfText(pt.x_mm, pt.y_mm - textH*1.0,
+      `X:${pt.x_mm.toFixed(0)} Y:${pt.y_mm.toFixed(0)}`, smallH*0.8, 'DIMS', COL_DIM, 1);
+  });
+
+  // ── 3. Odcinki (SEGMENTS) ────────────────────────────
+  state.segments.forEach(seg => {
+    const { a, b } = seg;
+
+    // Linia odcinka
+    dxf += dxfLine(a.x_mm, a.y_mm, b.x_mm, b.y_mm, 'SEGMENTS', COL_SEG);
+
+    // Etykieta wymiaru na środku odcinka
+    const mx = (a.x_mm + b.x_mm) / 2;
+    const my = (a.y_mm + b.y_mm) / 2;
+    // Kąt linii (DXF TEXT obrót w stopniach)
+    const angleDeg = Math.atan2(b.y_mm - a.y_mm, b.x_mm - a.x_mm) * 180 / Math.PI;
+    // Tekst z ID i wymiarem
+    const dimLabel = `S${seg.id}: ${seg.dist_mm.toFixed(0)} mm`;
+    let dimText = g(0,'TEXT') + g(8,'DIMS') + g(62,COL_DIM) +
+                  g(10,f(mx)) + g(20,f(my + textH*0.3)) + g(30,'0.000000') +
+                  g(40,f(smallH)) + g(1,dimLabel) + g(50,f(angleDeg)) +
+                  g(72,1) + g(11,f(mx)) + g(21,f(my + textH*0.3)) + g(31,'0.000000');
+    dxf += dimText;
+
+    // Punkty końcowe A i B
+    dxf += dxfPoint(a.x_mm, a.y_mm, 'SEGMENTS', COL_SEG);
+    dxf += dxfPoint(b.x_mm, b.y_mm, 'SEGMENTS', COL_SEG);
+  });
+
+  // ── 4. Komentarze (COMMENTS) ─────────────────────────
+  state.points.forEach(pt => {
+    if (!pt.comment) return;
+    // Tekst komentarza — offset w górę od punktu
+    const lines = pt.comment.split(/\n/);
+    lines.forEach((line, i) => {
+      if (!line.trim()) return;
+      dxf += dxfText(
+        pt.x_mm, pt.y_mm + textH * (1.2 + i * 0.9),
+        line.slice(0, 80),   // DXF TEXT max ~80 znaków bezpiecznie
+        smallH * 0.75, 'COMMENTS', COL_COMMENT, 1
+      );
+    });
+  });
+  state.segments.forEach(seg => {
+    if (!seg.comment) return;
+    const mx = (seg.a.x_mm + seg.b.x_mm) / 2;
+    const my = (seg.a.y_mm + seg.b.y_mm) / 2;
+    const lines = seg.comment.split(/\n/);
+    lines.forEach((line, i) => {
+      if (!line.trim()) return;
+      dxf += dxfText(mx, my - textH*(0.8 + i*0.9), line.slice(0,80), smallH*0.75, 'COMMENTS', COL_COMMENT, 1);
+    });
+  });
+
+  dxf += g(0,'ENDSEC');
+  dxf += g(0,'EOF');
+
+  // ── Pobierz plik ─────────────────────────────────────
+  downloadText(dxf, (state.projectName || 'pomiary') + '.dxf', 'application/dxf');
+  toast(`DXF wyeksportowany — ${state.points.length} pkt, ${state.segments.length} odcinków`);
+}
+
+function downloadText(text, filename, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════════════════
+   VOICE COMMENT SYSTEM
+═══════════════════════════════════════════════════════ */
+let vmCurrentId = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let recTimerInterval = null;
+let recSeconds = 0;
+let vmRecording = false;
+
+function openVoiceModal(pointId) {
+  const pt = state.points.find(p => p.id === pointId);
+  if (!pt) return;
+  vmCurrentId = pointId;
+  document.getElementById('vm-point-id').textContent = pointId;
+  document.getElementById('vm-transcript').value = pt.comment || '';
+  document.getElementById('vm-rec-btn').classList.remove('recording');
+  document.getElementById('vm-rec-label').textContent = '● Nagraj';
+  document.getElementById('vm-rec-time').textContent = '';
+  document.getElementById('voice-modal').classList.add('open');
+  setTimeout(() => document.getElementById('vm-transcript').focus(), 100);
+}
+
+function closeVoiceModal() {
+  stopRecording();
+  document.getElementById('voice-modal').classList.remove('open');
+  vmCurrentId = null;
+  vmSegmentMode = false;
+  vmSegCurrentId = null;
+}
+
+function saveVoiceComment() {
+  stopRecording();
+  const text = document.getElementById('vm-transcript').value.trim();
+  if (vmSegmentMode && vmSegCurrentId !== null) {
+    // Zapis komentarza do odcinka
+    const seg = state.segments.find(s => s.id === vmSegCurrentId);
+    if (seg) { pushUndoState(); seg.comment = text; }
+    vmSegmentMode = false; vmSegCurrentId = null;
+    closeVoiceModal();
+    updateSegmentUI();
+    redrawOverlay();
+    markDirty();
+    toast('Opis odcinka zapisany');
+  } else {
+    // Zapis komentarza do punktu
+    if (vmCurrentId === null) return;
+    const pt = state.points.find(p => p.id === vmCurrentId);
+    if (!pt) return;
+    pushUndoState();
+    pt.comment = text;
+    closeVoiceModal();
+    updateMeasurementUI();
+    redrawOverlay();
+    markDirty();
+    toast('Komentarz zapisany');
+  }
+}
+
+async function toggleVoiceRecording() {
+  if (vmRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Twoja przeglądarka nie obsługuje nagrywania', 'err'); return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    // Wybierz najlepszy obsługiwany format z transkrypcją
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'pl-PL';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      let finalText = document.getElementById('vm-transcript').value;
+      recognition.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            finalText += (finalText ? ' ' : '') + e.results[i][0].transcript;
+          } else {
+            interim = e.results[i][0].transcript;
+          }
+        }
+        document.getElementById('vm-transcript').value = finalText + (interim ? ' ' + interim : '');
+      };
+      recognition.start();
+      mediaRecorder._recognition = recognition;
+    }
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.start(100);
+    vmRecording = true;
+
+    // UI
+    document.getElementById('vm-rec-btn').classList.add('recording');
+    document.getElementById('vm-rec-label').textContent = '■ Zatrzymaj';
+    recSeconds = 0;
+    recTimerInterval = setInterval(() => {
+      recSeconds++;
+      const m = Math.floor(recSeconds/60).toString().padStart(2,'0');
+      const s = (recSeconds%60).toString().padStart(2,'0');
+      document.getElementById('vm-rec-time').textContent = `${m}:${s}`;
+    }, 1000);
+  } catch(err) {
+    toast('Brak dostępu do mikrofonu: ' + err.message, 'err');
+  }
+}
+
+function stopRecording() {
+  if (!vmRecording) return;
+  vmRecording = false;
+  clearInterval(recTimerInterval);
+  document.getElementById('vm-rec-btn').classList.remove('recording');
+  document.getElementById('vm-rec-label').textContent = '● Nagraj';
+  if (mediaRecorder) {
+    if (mediaRecorder._recognition) {
+      try { mediaRecorder._recognition.stop(); } catch(e) {}
+    }
+    mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+    mediaRecorder.stop();
+    mediaRecorder = null;
+  }
+}
+
+// Zamknij modal kliknięciem w tło
+document.getElementById('voice-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('voice-modal')) closeVoiceModal();
+});
+
+/* ═══════════════════════════════════════════════════════
+   REPORT A4
+═══════════════════════════════════════════════════════ */
+function showReport() {
+  if (state.points.length === 0 && state.segments.length === 0) { toast('Brak punktów ani odcinków do raportu', 'warn'); return; }
+  const container = document.getElementById('report-container');
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pl-PL', { year:'numeric', month:'long', day:'numeric' });
+  const timeStr = now.toLocaleTimeString('pl-PL', { hour:'2-digit', minute:'2-digit' });
+
+  // Oblicz odległości między kolejnymi punktami
+  const dists = state.points.map((pt, i) => {
+    if (i === 0) return '—';
+    const prev = state.points[i-1];
+    const dx = pt.x_mm - prev.x_mm, dy = pt.y_mm - prev.y_mm;
+    return Math.sqrt(dx*dx + dy*dy).toFixed(0) + ' mm';
+  });
+
+  const pointRows = state.points.map((pt, i) => `
+    <tr>
+      <td class="td-id"><span class="point-badge-report">${pt.id}</span></td>
+      <td class="td-coords">X: ${pt.x_mm.toFixed(0)}<br>Y: ${pt.y_mm.toFixed(0)}</td>
+      <td class="td-dist">${dists[i]}</td>
+      <td class="td-comment">${pt.comment ? escapeHtml(pt.comment) : '<em>brak opisu</em>'}</td>
+    </tr>
+  `).join('');
+
+  const segRows = state.segments.map(seg => `
+    <tr>
+      <td class="td-id" style="background:#EBF5FB">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:#2980B9;color:#fff;font-size:9px;font-weight:700">${seg.id}</span>
+      </td>
+      <td class="td-coords">A: ${seg.a.x_mm.toFixed(0)}, ${seg.a.y_mm.toFixed(0)}<br>B: ${seg.b.x_mm.toFixed(0)}, ${seg.b.y_mm.toFixed(0)}</td>
+      <td class="td-dist" style="font-weight:700;color:#1A5276">${seg.dist_mm.toFixed(0)} mm</td>
+      <td class="td-comment">${seg.comment ? escapeHtml(seg.comment) : '<em>brak opisu</em>'}</td>
+    </tr>
+  `).join('');
+
+  const hasPoints = state.points.length > 0;
+  const hasSegs = state.segments.length > 0;
+
+  container.innerHTML = `
+    <div class="report-header-doc">
+      <h1>📐 Photo Measure Pro — Lista pomiarów</h1>
+      <div style="font-size:9px;color:#bbb;margin-top:2px">© JackFurnish</div>
+      <div class="rh-meta">
+        <span><strong>Projekt:</strong> ${escapeHtml(state.projectName || 'Nowy projekt')}</span>
+        <span><strong>Data:</strong> ${dateStr}, ${timeStr}</span>
+        <span><strong>Płaszczyzna:</strong> ${state.planeMM.w.toFixed(0)} × ${state.planeMM.h.toFixed(0)} mm</span>
+      </div>
+      <div class="rh-meta" style="margin-top:4px">
+        <span><strong>Krawędzie:</strong> Góra ${state.edges.top}mm · Dół ${state.edges.bot}mm · Lewa ${state.edges.left}mm · Prawa ${state.edges.right}mm</span>
+        <span><strong>Punkty:</strong> ${state.points.length} &nbsp;·&nbsp; <strong>Odcinki:</strong> ${state.segments.length}</span>
+      </div>
+    </div>
+
+    ${hasPoints ? `
+    <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:6px">Punkty pomiarowe</p>
+    <table class="report-table" style="margin-bottom:28px">
+      <thead><tr>
+        <th style="width:40px">Pkt</th>
+        <th style="width:110px">Współrzędne</th>
+        <th style="width:90px">Odl. od poprz.</th>
+        <th>Opis / komentarz</th>
+      </tr></thead>
+      <tbody>${pointRows}</tbody>
+    </table>` : ''}
+
+    ${hasSegs ? `
+    <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#1A5276;margin-bottom:6px">Odcinki (pomiary odległości)</p>
+    <table class="report-table">
+      <thead><tr>
+        <th style="width:40px">Odc.</th>
+        <th style="width:160px">Punkty A → B</th>
+        <th style="width:90px">Długość</th>
+        <th>Opis</th>
+      </tr></thead>
+      <tbody>${segRows}</tbody>
+    </table>` : ''}
+
+    <div class="report-footer-doc">
+      <span>Układ: (0,0) = lewy dolny narożnik · Y rośnie w górę</span>
+      <span>Photo Measure Pro · JackFurnish · ${dateStr}</span>
+    </div>
+  `;
+
+  document.getElementById('report-modal').classList.add('open');
+}
+
+/* ═══════════════════════════════════════════════════════
+   ANNOTATED PHOTO PRINT / EXPORT
+═══════════════════════════════════════════════════════ */
+
+/**
+ * Buduje canvas z rektyfikowanym zdjęciem + adnotacje:
+ *  - Punkty pomiarowe (pomarańczowe kółka z numerami)
+ *  - Odcinki (niebieskie linie z wymiarem)
+ *  - Skala metryczna
+ *  - Nagłówek z nazwą projektu
+ * Zwraca HTMLCanvasElement gotowy do druku lub eksportu PNG.
+ */
+function buildAnnotatedCanvas() {
+  if (!state.rectCanvas) {
+    toast('Brak rektyfikowanego obrazu — wykonaj najpierw krok 2 (Rektyfikacja)', 'warn');
+    return null;
+  }
+
+  // ── Parametry układu ──────────────────────────────────
+  const MARGIN_TOP    = 64;  // nagłówek
+  const MARGIN_BOTTOM = 52;  // skala + stopka
+  const MARGIN_SIDE   = 0;
+
+  const srcW = state.rectCanvas.width;
+  const srcH = state.rectCanvas.height;
+
+  // Docelowa szerokość obrazu na canvasie — max 2400px
+  const TARGET_IMG_W = Math.min(srcW, 2400);
+  const scale        = TARGET_IMG_W / srcW;
+  const imgW         = Math.round(srcW * scale);
+  const imgH         = Math.round(srcH * scale);
+
+  const canvasW = imgW + MARGIN_SIDE * 2;
+  const canvasH = imgH + MARGIN_TOP + MARGIN_BOTTOM;
+
+  const out = document.createElement('canvas');
+  out.width  = canvasW;
+  out.height = canvasH;
+  const ctx = out.getContext('2d');
+
+  // ── Białe tło ─────────────────────────────────────────
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  // ── Nagłówek ──────────────────────────────────────────
+  ctx.fillStyle = '#2D2E2E';
+  ctx.fillRect(0, 0, canvasW, MARGIN_TOP - 8);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 20px "Arial", sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('📐 Photo Measure Pro', 16, 18);
+  ctx.font = '11px "Arial", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillText('© JackFurnish', 16, 54);
+
+  ctx.font = '13px "Arial", sans-serif';
+  ctx.fillStyle = '#BBBBBB';
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pl-PL', { year:'numeric', month:'short', day:'numeric' });
+  ctx.fillText(`${escapeHtml(state.projectName || 'Projekt')}  ·  ${dateStr}`, 16, 42);
+
+  // Informacja o płaszczyźnie (prawy górny róg)
+  const planeInfo = `Góra ${state.edges.top} · Dół ${state.edges.bot} · Lewa ${state.edges.left} · Prawa ${state.edges.right} mm`;
+  ctx.font = '11px "Arial", sans-serif';
+  ctx.fillStyle = '#AAAAAA';
+  ctx.textAlign = 'right';
+  ctx.fillText(planeInfo, canvasW - 16, 30);
+  ctx.textAlign = 'left';
+
+  // ── Rektyfikowane zdjęcie ─────────────────────────────
+  const imgOffX = MARGIN_SIDE;
+  const imgOffY = MARGIN_TOP;
+  ctx.drawImage(state.rectCanvas, imgOffX, imgOffY, imgW, imgH);
+
+  // ── Helper: mm → canvas px ────────────────────────────
+  // Układ Y-up: (0,0) = lewy dolny narożnik obrazu rektyfikowanego
+  const ppm = state.pxPerMM * scale;  // px-per-mm w układzie canvasu
+
+  function mmToOut(x_mm, y_mm) {
+    return {
+      x: imgOffX + x_mm * ppm,
+      y: imgOffY + imgH - y_mm * ppm   // Y odwrócony
+    };
+  }
+
+  // ── Odcinki ───────────────────────────────────────────
+  state.segments.forEach(seg => {
+    const pA = mmToOut(seg.a.x_mm, seg.a.y_mm);
+    const pB = mmToOut(seg.b.x_mm, seg.b.y_mm);
+
+    // Linia
+    ctx.save();
+    ctx.strokeStyle = '#2471A3';
+    ctx.lineWidth   = Math.max(2, 3 * scale);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(pA.x, pA.y);
+    ctx.lineTo(pB.x, pB.y);
+    ctx.stroke();
+
+    // Strzałki na końcach
+    const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
+    const arrowLen = 12;
+    [pA, pB].forEach((pt, idx) => {
+      const dir = idx === 0 ? angle + Math.PI : angle;
+      ctx.beginPath();
+      ctx.moveTo(pt.x, pt.y);
+      ctx.lineTo(pt.x + arrowLen * Math.cos(dir - 0.4), pt.y + arrowLen * Math.sin(dir - 0.4));
+      ctx.moveTo(pt.x, pt.y);
+      ctx.lineTo(pt.x + arrowLen * Math.cos(dir + 0.4), pt.y + arrowLen * Math.sin(dir + 0.4));
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // Etykieta z wymiarem — na środku odcinka
+    const mx = (pA.x + pB.x) / 2;
+    const my = (pA.y + pB.y) / 2;
+    const label = `${seg.dist_mm.toFixed(0)} mm`;
+    const fontSize = Math.max(12, Math.round(14 * scale));
+    ctx.font = `bold ${fontSize}px "Arial", sans-serif`;
+
+    const tw = ctx.measureText(label).width;
+    const th = fontSize + 4;
+    const px = mx - tw / 2 - 5;
+    const py = my - th / 2 - 2;
+
+    // Tło etykiety
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.strokeStyle = '#2471A3';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(px, py, tw + 10, th + 4, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#1A5276';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx, my);
+
+    // ID odcinka (mała etykietka przy punkcie A)
+    const segIdFontSize = Math.max(9, Math.round(10 * scale));
+    ctx.font = `bold ${segIdFontSize}px "Arial", sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    const r = segIdFontSize + 2;
+    ctx.save();
+    ctx.fillStyle = '#2471A3';
+    ctx.beginPath();
+    ctx.roundRect(pA.x - r/2, pA.y - r - 4, r, r, 3);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(`S${seg.id}`, pA.x, pA.y - 4 - r/2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  // ── Punkty pomiarowe ──────────────────────────────────
+  const dotR = Math.max(10, Math.round(12 * scale));
+  const labelFontSize = Math.max(9, Math.round(11 * scale));
+
+  state.points.forEach(pt => {
+    const { x, y } = mmToOut(pt.x_mm, pt.y_mm);
+
+    // Cień
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    // Kółko
+    ctx.fillStyle = '#E07B39';
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = Math.max(2, 2.5 * scale);
+    ctx.beginPath();
+    ctx.arc(x, y, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Numer w kółku
+    ctx.font = `bold ${labelFontSize}px "Arial", sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(pt.id), x, y);
+
+    // Współrzędne pod kółkiem
+    const coordFontSize = Math.max(8, Math.round(9 * scale));
+    ctx.font = `${coordFontSize}px "Arial", sans-serif`;
+    const coordLabel = `X:${pt.x_mm.toFixed(0)} Y:${pt.y_mm.toFixed(0)}`;
+    const cw = ctx.measureText(coordLabel).width;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.beginPath();
+    ctx.roundRect(x - cw/2 - 3, y + dotR + 2, cw + 6, coordFontSize + 4, 3);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(coordLabel, x, y + dotR + coordFontSize/2 + 4);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  // ── Skala metryczna ───────────────────────────────────
+  // Dobierz "ładną" wartość dla skali (100, 200, 500 mm itp.)
+  const niceScales = [50, 100, 200, 250, 500, 1000, 2000];
+  const targetBarPx = imgW * 0.18;
+  let scaleMM = niceScales[0];
+  for (const s of niceScales) {
+    if (s * ppm <= targetBarPx) scaleMM = s;
+  }
+  const barPx  = scaleMM * ppm;
+  const barX   = imgOffX + 20;
+  const barY   = imgOffY + imgH + 18;
+  const barH   = 7;
+
+  ctx.fillStyle = '#2D2E2E';
+  ctx.fillRect(barX, barY, barPx, barH);
+  // Znaczniki na końcach
+  ctx.fillRect(barX, barY - 4, 2, barH + 8);
+  ctx.fillRect(barX + barPx - 2, barY - 4, 2, barH + 8);
+
+  ctx.font = 'bold 12px "Arial", sans-serif';
+  ctx.fillStyle = '#2D2E2E';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${scaleMM >= 1000 ? scaleMM/1000 + ' m' : scaleMM + ' mm'}`, barX + barPx + 8, barY - 2);
+
+  // ── Stopka ────────────────────────────────────────────
+  ctx.font = '10px "Arial", sans-serif';
+  ctx.fillStyle = '#999999';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(
+    `Układ: (0,0) = lewy dolny narożnik · Y rośnie w górę · ${state.points.length} punktów · ${state.segments.length} odcinków`,
+    canvasW - 16, canvasH - 6
+  );
+
+  return out;
+}
+
+/**
+ * Otwiera nowe okno z anotowanym zdjęciem i wywołuje drukowanie.
+ */
+function printWithPhoto() {
+  const canvas = buildAnnotatedCanvas();
+  if (!canvas) return;
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { toast('Przeglądarka zablokowała okno podręczne — zezwól na popup', 'warn'); return; }
+
+  const projectName = escapeHtml(state.projectName || 'Projekt');
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pl-PL', { year:'numeric', month:'long', day:'numeric' });
+
+  win.document.write(`<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Photo Measure Pro — ${projectName}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #555; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; font-family: Arial, sans-serif; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+    button { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-print { background: #E07B39; color: #fff; }
+    .btn-save  { background: #2471A3; color: #fff; }
+    .btn-close { background: #555; color: #fff; }
+    img { max-width: 100%; box-shadow: 0 4px 30px rgba(0,0,0,0.5); border-radius: 4px; }
+    @media print {
+      body { background: none; padding: 0; }
+      .toolbar { display: none; }
+      img { width: 100%; max-width: none; box-shadow: none; }
+      @page { size: A4 landscape; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">🖨 Drukuj</button>
+    <a id="save-link" download="pomiary-${projectName}.png">
+      <button class="btn-save">💾 Zapisz PNG</button>
+    </a>
+    <button class="btn-close" onclick="window.close()">✕ Zamknij</button>
+  </div>
+  <img id="photo" src="${dataUrl}" alt="Pomiary">
+  <script>
+    document.getElementById('save-link').href = '${dataUrl}';
+    // Auto-focus dla Cmd+P
+    window.focus();
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+}
+
+/**
+ * Bezpośredni zapis PNG bez otwierania nowego okna.
+ */
+function saveAnnotatedPNG() {
+  const canvas = buildAnnotatedCanvas();
+  if (!canvas) return;
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (state.projectName || 'pomiary') + '-adnotacje.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('PNG z adnotacjami zapisany');
+  }, 'image/png');
+}
+
+function closeReport() {
+  document.getElementById('report-modal').classList.remove('open');
+}
+
+function printReport() {
+  window.print();
+}
+
+function saveReportHTML() {
+  const container = document.getElementById('report-container');
+  const html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Raport — ${escapeHtml(state.projectName || 'pomiary')}</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 40px; color: #1a1a1a; }
+${document.querySelector('style').textContent.split('/* ── VOICE')[0]}
+</style>
+</head>
+<body>${container.innerHTML}</body>
+</html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (state.projectName||'raport') + '.html'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Raport HTML zapisany');
+}
+
+// Zamknij raport kliknięciem w tło
+document.getElementById('report-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('report-modal')) closeReport();
+});
+
+/* ═══════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════ */
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+function markDirty() { state.dirty = true; }
+
+let toastTimer = null;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type === 'err' ? '#C0392B' : type === 'warn' ? '#E07B39' : '#2D2E2E';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Window resize → re-render
+window.addEventListener('resize', () => {
+  if (state.imageEl) renderCurrentMode();
+});
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProject(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); openProject(); }
+});
+
+// Init
+updateCornerUI();
+tryComputeHomography();
+updateMeasurementUI();
+updateSegmentUI();
+</script>
+</body>
+</html>
