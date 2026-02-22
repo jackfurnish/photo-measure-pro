@@ -891,6 +891,11 @@ canvas {
         <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
           <input type="checkbox" id="show-crosshair" onchange="onCrosshairToggle()"> Celownik (crosshair)
         </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="snap-edges" onchange="onSnapEdgesToggle()">
+          Snap do krawędzi
+          <span style="background:#27AE60;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.3px">CV</span>
+        </label>
       </div>
     </div>
 
@@ -1148,7 +1153,13 @@ const state = {
     k2: 0.0,
     source: 'manual',        // 'manual' | 'exif'
     livePreview: false
-  }
+  },
+  // ── Detekcja krawędzi (CV) ─────────────────────────
+  edgeMap: null,          // Uint8Array(W*H): 255=krawędź, 0=brak
+  edgeMapW: 0,
+  edgeMapH: 0,
+  edgeScale: 1,           // współczynnik downscale: edgeMapW = imageNaturalW * edgeScale
+  edgeSnapEnabled: false  // czy snap CV aktywny
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -1456,6 +1467,44 @@ function updateMagnifier(clientX, clientY, imgX, imgY) {
     0, 0,                              // cel: cały magnifier canvas
     MAG_SIZE, MAG_SIZE
   );
+
+  // ── Nakładka krawędzi CV w lupie ───────────────────
+  if (state.edgeSnapEnabled && state.edgeMap) {
+    const scX = state.imageNaturalW / imgCanvas.width;
+    const scY = state.imageNaturalH / imgCanvas.height;
+    const natCx   = imgX * scX;
+    const natCy   = imgY * scY;
+    const natSrcW = (src / imgCanvas.width)  * state.imageNaturalW;
+    const natSrcH = (src / imgCanvas.height) * state.imageNaturalH;
+    const stepX   = natSrcW / MAG_SIZE;
+    const stepY   = natSrcH / MAG_SIZE;
+    const { edgeMap, edgeMapW: EW, edgeMapH: EH, edgeScale: esc } = state;
+    // Tymczasowy canvas dla nakładki (alpha-blending przez drawImage)
+    if (!updateMagnifier._edgeBuf) {
+      updateMagnifier._edgeBuf = document.createElement('canvas');
+      updateMagnifier._edgeBuf.width = updateMagnifier._edgeBuf.height = MAG_SIZE;
+    }
+    const bCtx  = updateMagnifier._edgeBuf.getContext('2d');
+    const edgePx = bCtx.createImageData(MAG_SIZE, MAG_SIZE);
+    for (let py = 0; py < MAG_SIZE; py++) {
+      for (let px2 = 0; px2 < MAG_SIZE; px2++) {
+        const nx = natCx - natSrcW / 2 + px2 * stepX;
+        const ny = natCy - natSrcH / 2 + py  * stepY;
+        const ex = Math.round(nx * esc);
+        const ey = Math.round(ny * esc);
+        if (ex < 0 || ex >= EW || ey < 0 || ey >= EH) continue;
+        if (edgeMap[ey * EW + ex] === 255) {
+          const di = (py * MAG_SIZE + px2) * 4;
+          edgePx.data[di]   = 0;
+          edgePx.data[di+1] = 230;
+          edgePx.data[di+2] = 100;
+          edgePx.data[di+3] = 200;
+        }
+      }
+    }
+    bCtx.putImageData(edgePx, 0, 0);
+    magCtx.drawImage(updateMagnifier._edgeBuf, 0, 0);
+  }
 
   // ── Crosshair wewnątrz lupy ────────────────────────
   const hairGap  = 8;
@@ -2058,9 +2107,14 @@ function onCanvasClick(e) {
   if (isPanning || spaceDown) return;
   if (state._dragPoint) return;   // ignoruj klik po drag
   if (state.mode === 'corners' && state.imageEl) {
-    const { x, y } = canvasToImageCoords(e);
+    let { x, y } = canvasToImageCoords(e);
     const ci = state.cornerSetIndex;
     if (ci < 4) {
+      // Snap do krawędzi CV (jeśli aktywny i mapa dostępna)
+      if (state.edgeSnapEnabled && state.edgeMap) {
+        const snap = findEdgeSnapTarget(x, y);
+        if (snap) { x = snap.x; y = snap.y; }
+      }
       pushUndoState();
       state.corners[ci] = { x, y };
       state.cornerSetIndex = ci + 1;
@@ -2657,6 +2711,8 @@ function loadImageFromSrc(src, name) {
     setMode('corners');
     renderCurrentMode();
     markDirty();
+    // Uruchom detekcję krawędzi CV (jeśli checkbox włączony)
+    computeEdgesAsync(img);
   };
   img.src = src;
 }
@@ -4693,6 +4749,179 @@ ${document.querySelector('style').textContent.split('/* ── VOICE')[0]}
 document.getElementById('report-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('report-modal')) closeReport();
 });
+
+/* ═══════════════════════════════════════════════════════
+   DETEKCJA KRAWĘDZI (Canny CV) — bez zewnętrznych bibliotek
+   Gaussian → Sobel → NMS → Double Threshold → Hysteresis
+═══════════════════════════════════════════════════════ */
+
+const SNAP_RADIUS_PX = 20;   // promień snapa w naturalnych pikselach
+
+// Gaussian Blur 5×5 separowalny, jądro [1,4,6,4,1]/16
+function gaussianBlur5(src, W, H) {
+  const k = [1, 4, 6, 4, 1];
+  const tmp = new Float32Array(W * H);
+  const dst = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let s = 0, w = 0;
+      for (let i = -2; i <= 2; i++) {
+        const xi = Math.max(0, Math.min(W - 1, x + i));
+        s += k[i + 2] * src[y * W + xi]; w += k[i + 2];
+      }
+      tmp[y * W + x] = s / w;
+    }
+  }
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let s = 0, w = 0;
+      for (let i = -2; i <= 2; i++) {
+        const yi = Math.max(0, Math.min(H - 1, y + i));
+        s += k[i + 2] * tmp[yi * W + x]; w += k[i + 2];
+      }
+      dst[y * W + x] = s / w;
+    }
+  }
+  return dst;
+}
+
+// Canny edge detection: Sobel + NMS + double threshold + hysteresis BFS
+function cannyEdges(lum, W, H) {
+  const blurred = gaussianBlur5(lum, W, H);
+  const mag   = new Float32Array(W * H);
+  const angle = new Uint8Array(W * H);
+
+  // Sobel — gradient i kąt (kwantowany do 4 kierunków: 0°,45°,90°,135°)
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const gx =
+        -blurred[(y-1)*W+(x-1)] + blurred[(y-1)*W+(x+1)] +
+        -2*blurred[y*W+(x-1)]   + 2*blurred[y*W+(x+1)] +
+        -blurred[(y+1)*W+(x-1)] + blurred[(y+1)*W+(x+1)];
+      const gy =
+        -blurred[(y-1)*W+(x-1)] - 2*blurred[(y-1)*W+x] - blurred[(y-1)*W+(x+1)] +
+         blurred[(y+1)*W+(x-1)] + 2*blurred[(y+1)*W+x] + blurred[(y+1)*W+(x+1)];
+      mag[y*W+x] = Math.sqrt(gx*gx + gy*gy);
+      let a = Math.atan2(gy, gx) * 180 / Math.PI; if (a < 0) a += 180;
+      angle[y*W+x] = a < 22.5 || a >= 157.5 ? 0 : a < 67.5 ? 1 : a < 112.5 ? 2 : 3;
+    }
+  }
+
+  // Non-Maximum Suppression — ścieńczanie krawędzi
+  const nms = new Float32Array(W * H);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const idx = y*W+x, m = mag[idx];
+      let n1, n2;
+      switch (angle[idx]) {
+        case 0: n1=mag[y*W+(x-1)];      n2=mag[y*W+(x+1)];      break;
+        case 1: n1=mag[(y-1)*W+(x+1)];  n2=mag[(y+1)*W+(x-1)];  break;
+        case 2: n1=mag[(y-1)*W+x];      n2=mag[(y+1)*W+x];      break;
+        default:n1=mag[(y-1)*W+(x-1)];  n2=mag[(y+1)*W+(x+1)];  break;
+      }
+      nms[idx] = (m >= n1 && m >= n2) ? m : 0;
+    }
+  }
+
+  // Automatyczne progi: 90. i 60. percentyl niezerowych wartości NMS
+  const vals = [];
+  for (let i = 0; i < nms.length; i++) { if (nms[i] > 0) vals.push(nms[i]); }
+  vals.sort((a, b) => a - b);
+  const HIGH = vals.length ? vals[Math.floor(vals.length * 0.90)] : 80;
+  const LOW  = vals.length ? vals[Math.floor(vals.length * 0.60)] : 30;
+
+  const SURE = 255, WEAK = 128;
+  const result = new Uint8Array(W * H);
+  for (let i = 0; i < nms.length; i++) {
+    if      (nms[i] >= HIGH) result[i] = SURE;
+    else if (nms[i] >= LOW)  result[i] = WEAK;
+  }
+
+  // Hysteresis BFS: propagacja silnych krawędzi do słabych sąsiadów
+  const queue = [];
+  for (let i = 0; i < result.length; i++) { if (result[i] === SURE) queue.push(i); }
+  let qi = 0;
+  while (qi < queue.length) {
+    const idx = queue[qi++];
+    const y = Math.floor(idx / W), x = idx % W;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dy && !dx) continue;
+      const ny2 = y+dy, nx2 = x+dx;
+      if (ny2 < 0 || ny2 >= H || nx2 < 0 || nx2 >= W) continue;
+      const ni = ny2*W+nx2;
+      if (result[ni] === WEAK) { result[ni] = SURE; queue.push(ni); }
+    }
+  }
+  // Usuń osierocone słabe krawędzie
+  for (let i = 0; i < result.length; i++) { if (result[i] === WEAK) result[i] = 0; }
+  return result;  // Uint8Array: 255=krawędź, 0=brak
+}
+
+// Oblicz mapę krawędzi dla obrazu (downscale do max 1.5MP dla wydajności)
+function computeEdgeMap(imageEl) {
+  const natW = imageEl.naturalWidth, natH = imageEl.naturalHeight;
+  const MAX_PX = 1_500_000;
+  const scale = natW * natH > MAX_PX ? Math.sqrt(MAX_PX / (natW * natH)) : 1;
+  const W = Math.round(natW * scale), H = Math.round(natH * scale);
+
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  const offCtx = off.getContext('2d');
+  offCtx.drawImage(imageEl, 0, 0, W, H);
+  const rgba = offCtx.getImageData(0, 0, W, H).data;
+
+  // Konwertuj RGBA → luminancja (ITU-R BT.601)
+  const lum = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    lum[i] = Math.round(0.299*rgba[i*4] + 0.587*rgba[i*4+1] + 0.114*rgba[i*4+2]);
+  }
+  return { map: cannyEdges(lum, W, H), W, H, scale };
+}
+
+// Async wrapper z toastem — nie blokuje UI
+function computeEdgesAsync(imageEl) {
+  state.edgeMap = null; state.edgeMapW = 0; state.edgeMapH = 0; state.edgeScale = 1;
+  if (!document.getElementById('snap-edges').checked) return;
+  toast('Obliczanie mapy krawędzi…', 'warn');
+  setTimeout(() => {
+    try {
+      const { map, W, H, scale } = computeEdgeMap(imageEl);
+      state.edgeMap = map; state.edgeMapW = W; state.edgeMapH = H; state.edgeScale = scale;
+      toast('Mapa krawędzi gotowa', 'success');
+    } catch (err) {
+      toast('Błąd detekcji krawędzi: ' + err.message, 'err');
+    }
+  }, 50);
+}
+
+// Znajdź najbliższą krawędź w promieniu SNAP_RADIUS_PX od kliknięcia
+function findEdgeSnapTarget(naturalX, naturalY) {
+  if (!state.edgeMap) return null;
+  const { edgeMap, edgeMapW: W, edgeMapH: H, edgeScale: sc } = state;
+  const ex = naturalX * sc, ey = naturalY * sc;
+  const r = SNAP_RADIUS_PX * sc;
+  const x0 = Math.max(0, Math.floor(ex-r)), x1 = Math.min(W-1, Math.ceil(ex+r));
+  const y0 = Math.max(0, Math.floor(ey-r)), y1 = Math.min(H-1, Math.ceil(ey+r));
+  let bestD2 = r*r+1, bestX = -1, bestY = -1;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (edgeMap[y*W+x] !== 255) continue;
+    const d2 = (x-ex)*(x-ex) + (y-ey)*(y-ey);
+    if (d2 < bestD2) { bestD2 = d2; bestX = x; bestY = y; }
+  }
+  return bestX < 0 ? null : { x: bestX / sc, y: bestY / sc };
+}
+
+// Toggle checkboxa snap-edges
+function onSnapEdgesToggle() {
+  const checked = document.getElementById('snap-edges').checked;
+  state.edgeSnapEnabled = checked;
+  if (checked && !state.edgeMap && state.imageEl) {
+    computeEdgesAsync(state.imageEl);
+  } else if (!checked) {
+    toast('Snap do krawędzi wyłączony');
+  }
+}
+window.onSnapEdgesToggle = onSnapEdgesToggle;
 
 /* ═══════════════════════════════════════════════════════
    HELPERS
